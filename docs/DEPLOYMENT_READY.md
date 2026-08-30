@@ -74,14 +74,10 @@ When you run the workflow, OpenTofu will create:
 ### Ansible Configuration (after infrastructure)
 
 - Nginx installation and configuration
-- PHP 7.4.33 (matching legacy environment)
-- WordPress migration and restoration
+- PHP runtime configuration
+- Fresh WordPress installation and setup
 - Security hardening
 - SSL/TLS configuration
-
-> **S3 downloads:** The workflow pulls backups from S3 on the GitHub runner using
-> the `AWS_ROLE_ARN_TERRAFORM` OIDC role, then SCPs them to the instance. The
-> Lightsail instance does **not** need an IAM profile.
 
 ## 🚀 Ready to Deploy
 

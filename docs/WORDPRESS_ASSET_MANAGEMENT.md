@@ -25,7 +25,7 @@ This document explains the recommended approach for managing WordPress code, the
 
 **Process:**
 ```bash
-1. Run workflow with restore_from_backup=false
+1. Run the Provision + Configure workflow with default settings
 2. WordPress installs clean
 3. Access https://yourdomain.com/wp-admin/install.php
 4. Complete WordPress setup wizard
