@@ -1,0 +1,394 @@
+name: Provision + Configure (OpenTofu + Ansible)
+
+on:
+  workflow_dispatch:
+    # No manual inputs needed - workflow auto-detects existing resources
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  preflight:
+    name: Detect Existing Resources
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: dev
+    outputs:
+      needs_import: ${{ steps.detect.outputs.needs_import }}
+      import_commands: ${{ steps.detect.outputs.import_commands }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
+          aws-region: us-east-1
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v2
+
+      - name: Generate SSH public key
+        id: ssh_key
+        run: |
+          echo "${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}" | ssh-keygen -y -f /dev/stdin > /tmp/public_key.pub
+          {
+            echo "public_key<<EOF"
+            cat /tmp/public_key.pub
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Cache OpenTofu plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            terraform/.terraform
+          key: ${{ runner.os }}-tofu-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-tofu-
+
+      - name: OpenTofu init (with retry)
+        working-directory: terraform
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
+
+          for attempt in 1 2 3 4 5; do
+            echo "🔄 Attempt $attempt/5: Running tofu init..."
+            if tofu init -upgrade; then
+              echo "✅ Init successful"
+              exit 0
+            fi
+            echo "⚠️  Init failed, waiting before retry..."
+            sleep $((attempt * 10))
+          done
+
+          echo "❌ Init failed after 5 attempts"
+          exit 1
+
+      - name: Detect what needs importing
+        id: detect
+        working-directory: terraform
+        run: |
+          set +e
+          echo "🔍 Detecting existing AWS resources..."
+
+          IMPORT_CMDS=""
+          NEEDS_IMPORT="false"
+
+          # Check each resource
+          check_resource() {
+            local resource_type=$1
+            local resource_name=$2
+            local aws_check_cmd=$3
+            local import_id=$4
+            
+            if ! tofu state show "$resource_type.$resource_name" >/dev/null 2>&1; then
+              if eval "$aws_check_cmd" 2>&1 | grep -q '"'; then
+                echo "  → $resource_type.$resource_name exists in AWS, needs import"
+                IMPORT_CMDS="${IMPORT_CMDS}${resource_type}.${resource_name}|${import_id};"
+                NEEDS_IMPORT="true"
+              fi
+            fi
+          }
+
+          # NOTE: aws_lightsail_key_pair CANNOT be imported (AWS provider limitation)
+          # It will be managed with lifecycle ignore_changes instead
+
+          check_resource "aws_lightsail_instance" "blog" \
+            "aws lightsail get-instance --instance-name blog-dev-1" \
+            "blog-dev-1"
+
+          check_resource "aws_lightsail_static_ip" "blog_ip" \
+            "aws lightsail get-static-ip --static-ip-name blog-dev-ip" \
+            "blog-dev-ip"
+
+          check_resource "aws_lightsail_lb" "blog_lb" \
+            "aws lightsail get-load-balancer --load-balancer-name blog-dev-lb" \
+            "blog-dev-lb"
+
+          # Check attachment resources (these link resources together)
+          check_resource "aws_lightsail_static_ip_attachment" "blog_ip_attach" \
+            "aws lightsail get-static-ip --static-ip-name blog-dev-ip | grep attachedTo" \
+            "blog-dev-ip"
+
+          check_resource "aws_lightsail_lb_attachment" "blog_lb_attach" \
+            "aws lightsail get-load-balancer --load-balancer-name blog-dev-lb | grep instanceName" \
+            "blog-dev-lb,blog-dev-1"
+
+          check_resource "aws_lightsail_lb_certificate" "blog_cert" \
+            "aws lightsail get-load-balancer-tls-certificates --load-balancer-name blog-dev-lb | grep blog-dev-cert" \
+            "blog-dev-lb,blog-dev-cert"
+
+          echo "needs_import=$NEEDS_IMPORT" >> "$GITHUB_OUTPUT"
+          echo "import_commands=$IMPORT_CMDS" >> "$GITHUB_OUTPUT"
+
+          if [ "$NEEDS_IMPORT" = "true" ]; then
+            echo "📋 Resources to import: $IMPORT_CMDS"
+          else
+            echo "✅ No imports needed - state is in sync"
+          fi
+
+          set -e
+
+  import_resources:
+    name: Import Existing Resources
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: dev
+    needs: preflight
+    if: needs.preflight.outputs.needs_import == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
+          aws-region: us-east-1
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v2
+
+      - name: Cache OpenTofu plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            terraform/.terraform
+          key: ${{ runner.os }}-tofu-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-tofu-
+
+      - name: OpenTofu init (with retry)
+        working-directory: terraform
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
+
+          for attempt in 1 2 3 4 5; do
+            echo "🔄 Attempt $attempt/5: Running tofu init..."
+            if tofu init; then
+              echo "✅ Init successful"
+              exit 0
+            fi
+            echo "⚠️  Init failed, waiting before retry..."
+            sleep $((attempt * 10))
+          done
+
+          echo "❌ Init failed after 5 attempts"
+          exit 1
+
+      - name: Import resources
+        working-directory: terraform
+        run: |
+          set -e
+          echo "📥 Importing resources into state..."
+
+          IFS=';' read -ra IMPORTS <<< "${{ needs.preflight.outputs.import_commands }}"
+          for import_spec in "${IMPORTS[@]}"; do
+            if [ -n "$import_spec" ]; then
+              IFS='|' read -r resource_addr import_id <<< "$import_spec"
+              echo "  → Importing $resource_addr..."
+              timeout 30s tofu import "$resource_addr" "$import_id" || {
+                echo "  ❌ Failed to import $resource_addr"
+                exit 1
+              }
+            fi
+          done
+
+          echo "✅ All imports complete"
+
+      - name: Upload Terraform state
+        uses: actions/upload-artifact@v7
+        with:
+          name: terraform-state
+          path: terraform/terraform.tfstate
+          retention-days: 1
+
+  opentofu:
+    name: Provision Infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    needs: [preflight, import_resources]
+    if: always() && (needs.preflight.result == 'success')
+    outputs:
+      static_ip: ${{ steps.tofu_output.outputs.static_ip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
+          aws-region: us-east-1
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v2
+
+      - name: Cache OpenTofu plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            terraform/.terraform
+          key: ${{ runner.os }}-tofu-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-tofu-
+
+      - name: Generate SSH public key
+        id: ssh_key
+        run: |
+          echo "${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}" | ssh-keygen -y -f /dev/stdin > /tmp/public_key.pub
+          {
+            echo "public_key<<EOF"
+            cat /tmp/public_key.pub
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: OpenTofu init (with retry)
+        working-directory: terraform
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
+
+          for attempt in 1 2 3 4 5; do
+            echo "🔄 Attempt $attempt/5: Running tofu init..."
+            if tofu init; then
+              echo "✅ Init successful"
+              exit 0
+            fi
+            echo "⚠️  Init failed, waiting before retry..."
+            sleep $((attempt * 10))
+          done
+
+          echo "❌ Init failed after 5 attempts"
+          exit 1
+
+      - name: Download imported state (if exists)
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: terraform-state
+          path: terraform/
+
+      - name: Handle key pair conflict (cannot be imported)
+        working-directory: terraform
+        run: |
+          set +e
+          echo "🔑 Checking key pair state..."
+
+          # Check if key pair is in Terraform state
+          if ! tofu state show aws_lightsail_key_pair.blog_key >/dev/null 2>&1; then
+            # Not in state - check if it exists in AWS
+            if aws lightsail get-key-pair --key-pair-name blog-wordpress-key 2>&1 | grep -q '"keyPair"'; then
+              echo "⚠️  Key pair exists in AWS but not in state (cannot import due to AWS limitation)"
+              echo "   Deleting existing key pair so Terraform can recreate it..."
+              aws lightsail delete-key-pair --key-pair-name blog-wordpress-key
+              echo "✅ Deleted - Terraform will recreate with same name"
+            else
+              echo "○ Key pair doesn't exist - Terraform will create it"
+            fi
+          else
+            echo "✅ Key pair already in state"
+          fi
+
+          set -e
+
+      - name: OpenTofu apply (phase 1 - infrastructure)
+        working-directory: terraform
+        run: |
+          tofu apply -auto-approve \
+            -var="enable_cert_validation_records=false" \
+            -var="cicd_public_key=${{ steps.ssh_key.outputs.public_key }}"
+
+      - name: OpenTofu apply (phase 2 - DNS validation records)
+        working-directory: terraform
+        run: |
+          tofu apply -auto-approve \
+            -var="enable_cert_validation_records=true" \
+            -var="cicd_public_key=${{ steps.ssh_key.outputs.public_key }}"
+
+      - name: Capture static IP output
+        id: tofu_output
+        working-directory: terraform
+        run: echo "static_ip=$(tofu output -raw static_ip)" >> $GITHUB_OUTPUT
+
+  ansible:
+    name: Configure WordPress (Ansible)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15 # Prevent runaway jobs - Ansible should complete in ~5-10 min
+    environment: dev
+    needs: opentofu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
+          aws-region: us-east-1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}" > ~/.ssh/lightsail_key
+          chmod 600 ~/.ssh/lightsail_key
+          # Remove any carriage returns that might have been added
+          sed -i 's/\r$//' ~/.ssh/lightsail_key
+
+      - name: Validate SSH key
+        run: |
+          echo "Checking SSH key format..."
+          head -n 1 ~/.ssh/lightsail_key
+          tail -n 1 ~/.ssh/lightsail_key
+          wc -l ~/.ssh/lightsail_key
+          echo "Validating key structure..."
+          ssh-keygen -l -f ~/.ssh/lightsail_key || echo "⚠️  Key validation failed"
+          echo "Generated public key fingerprint:"
+          ssh-keygen -y -f ~/.ssh/lightsail_key | ssh-keygen -lf - || echo "⚠️  Public key generation failed"
+
+      - name: Write Ansible vault password
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/.vault-pass
+          chmod 600 /tmp/.vault-pass
+
+      - name: Wait for instance to be ready
+        run: |
+          echo "Waiting for instance to accept SSH connections..."
+          for i in {1..30}; do
+            if ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 ubuntu@${{ needs.opentofu.outputs.static_ip }} 'echo ready'; then
+              echo "Instance is ready!"
+              break
+            fi
+            echo "Attempt $i/30: Instance not ready yet, waiting 10 seconds..."
+            sleep 10
+          done
+
+      - name: Create inventory from OpenTofu output
+        run: |
+          cat <<EOF > /tmp/inventory.ini
+          [lightsail]
+          lightsail-host ansible_host=${{ needs.opentofu.outputs.static_ip }} ansible_ssh_private_key_file=~/.ssh/lightsail_key
+          EOF
+
+      - name: Run Ansible site playbook
+        run: |
+          ansible-playbook -i /tmp/inventory.ini --vault-password-file /tmp/.vault-pass ansible/site.yml

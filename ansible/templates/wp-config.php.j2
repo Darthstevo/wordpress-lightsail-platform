@@ -1,0 +1,32 @@
+<?php
+define('DB_NAME', '{{ wp_db_name }}');
+define('DB_USER', '{{ wp_db_user }}');
+define('DB_PASSWORD', '{{ wp_db_password | default("change-me") }}');
+define('DB_HOST', '{{ wp_db_host }}');
+define('DB_CHARSET', 'utf8mb4');
+define('DB_COLLATE', '');
+
+define('WP_DEBUG', false);
+
+define('AUTH_KEY',         '{{ wp_auth_key | default("change-me") }}');
+define('SECURE_AUTH_KEY',  '{{ wp_secure_auth_key | default("change-me") }}');
+define('LOGGED_IN_KEY',    '{{ wp_logged_in_key | default("change-me") }}');
+define('NONCE_KEY',        '{{ wp_nonce_key | default("change-me") }}');
+define('AUTH_SALT',        '{{ wp_auth_salt | default("change-me") }}');
+define('SECURE_AUTH_SALT', '{{ wp_secure_auth_salt | default("change-me") }}');
+define('LOGGED_IN_SALT',   '{{ wp_logged_in_salt | default("change-me") }}');
+define('NONCE_SALT',       '{{ wp_nonce_salt | default("change-me") }}');
+
+$table_prefix = 'wp_';
+
+define('WP_HOME', '{{ wp_site_url }}');
+define('WP_SITEURL', '{{ wp_site_url }}');
+
+// Force HTTPS when behind load balancer
+if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    $_SERVER['HTTPS'] = 'on';
+}
+
+define('ABSPATH', __DIR__ . '/');
+
+require_once ABSPATH . 'wp-settings.php';

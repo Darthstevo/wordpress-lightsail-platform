@@ -1,0 +1,9 @@
+---
+- name: Install WordPress stack
+  hosts: lightsail
+  become: true
+  roles:
+    - mysql
+    - nginx
+    - php
+    - wordpress

@@ -1,0 +1,189 @@
+name: Destroy Observability Stacks
+
+on:
+    workflow_dispatch:
+        inputs:
+            destroy_synthetic:
+                description: "Destroy Synthetic Monitoring Stack"
+                type: boolean
+                default: true
+            destroy_alerts:
+                description: "Destroy Alerts Stack"
+                type: boolean
+                default: true
+            destroy_monitoring:
+                description: "Destroy Monitoring Stack"
+                type: boolean
+                default: true
+            confirm_destroy:
+                description: "Type 'destroy' to confirm"
+                required: true
+                type: string
+
+jobs:
+    validate_confirmation:
+        runs-on: ubuntu-latest
+        outputs:
+            confirmed: ${{ steps.check.outputs.confirmed }}
+        steps:
+            - name: Validate confirmation
+              id: check
+              run: |
+                  if [ "${{ inputs.confirm_destroy }}" != "destroy" ]; then
+                    echo "::error::You must type 'destroy' to confirm deletion"
+                    exit 1
+                  fi
+                  echo "confirmed=true" >> $GITHUB_OUTPUT
+
+    destroy_synthetic:
+        needs: validate_confirmation
+        if: ${{ inputs.destroy_synthetic }}
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v6
+              with:
+                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+                  aws-region: us-east-1
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "20"
+
+            - name: Install CDK dependencies
+              working-directory: cdk
+              run: npm ci
+
+            - name: Destroy Synthetic Monitoring Stack
+              working-directory: cdk
+              run: |
+                  echo "Destroying LightsailSyntheticMonitoringStack..."
+                  npx cdk destroy LightsailSyntheticMonitoringStack --force
+                  echo "✅ Synthetic Monitoring Stack destroyed"
+
+    destroy_alerts:
+        needs: [validate_confirmation, destroy_synthetic]
+        if: ${{ always() && inputs.destroy_alerts && needs.validate_confirmation.outputs.confirmed == 'true' }}
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v6
+              with:
+                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+                  aws-region: us-east-1
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "20"
+
+            - name: Install CDK dependencies
+              working-directory: cdk
+              run: npm ci
+
+            - name: Destroy Alerts Stack
+              working-directory: cdk
+              run: |
+                  echo "Destroying LightsailAlertsStack..."
+                  npx cdk destroy LightsailAlertsStack --force
+                  echo "✅ Alerts Stack destroyed"
+
+    destroy_monitoring:
+        needs: [validate_confirmation, destroy_synthetic, destroy_alerts]
+        if: ${{ always() && inputs.destroy_monitoring && needs.validate_confirmation.outputs.confirmed == 'true' }}
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v6
+              with:
+                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+                  aws-region: us-east-1
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: "20"
+
+            - name: Install CDK dependencies
+              working-directory: cdk
+              run: npm ci
+
+            - name: Destroy Monitoring Stack
+              working-directory: cdk
+              run: |
+                  echo "Destroying LightsailMonitoringStack..."
+                  npx cdk destroy LightsailMonitoringStack --force
+                  echo "✅ Monitoring Stack destroyed"
+
+    summary:
+        needs: [destroy_synthetic, destroy_alerts, destroy_monitoring]
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+            - name: Destruction Summary
+              run: |
+                  echo "## 🗑️ Observability Stack Destruction Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  if [ "${{ inputs.destroy_synthetic }}" == "true" ]; then
+                    if [ "${{ needs.destroy_synthetic.result }}" == "success" ]; then
+                      echo "- ✅ **Synthetic Monitoring Stack**: Destroyed" >> $GITHUB_STEP_SUMMARY
+                    else
+                      echo "- ❌ **Synthetic Monitoring Stack**: Failed or skipped" >> $GITHUB_STEP_SUMMARY
+                    fi
+                  else
+                    echo "- ⏭️ **Synthetic Monitoring Stack**: Skipped" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+                  if [ "${{ inputs.destroy_alerts }}" == "true" ]; then
+                    if [ "${{ needs.destroy_alerts.result }}" == "success" ]; then
+                      echo "- ✅ **Alerts Stack**: Destroyed" >> $GITHUB_STEP_SUMMARY
+                    else
+                      echo "- ❌ **Alerts Stack**: Failed or skipped" >> $GITHUB_STEP_SUMMARY
+                    fi
+                  else
+                    echo "- ⏭️ **Alerts Stack**: Skipped" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+                  if [ "${{ inputs.destroy_monitoring }}" == "true" ]; then
+                    if [ "${{ needs.destroy_monitoring.result }}" == "success" ]; then
+                      echo "- ✅ **Monitoring Stack**: Destroyed" >> $GITHUB_STEP_SUMMARY
+                    else
+                      echo "- ❌ **Monitoring Stack**: Failed or skipped" >> $GITHUB_STEP_SUMMARY
+                    fi
+                  else
+                    echo "- ⏭️ **Monitoring Stack**: Skipped" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📋 Destroyed Resources" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "The following AWS resources have been removed:" >> $GITHUB_STEP_SUMMARY
+                  echo "- CloudWatch Dashboards" >> $GITHUB_STEP_SUMMARY
+                  echo "- CloudWatch Alarms" >> $GITHUB_STEP_SUMMARY
+                  echo "- SNS Topics and Subscriptions" >> $GITHUB_STEP_SUMMARY
+                  echo "- CloudWatch Synthetics Canaries" >> $GITHUB_STEP_SUMMARY
+                  echo "- S3 Canary Artifacts Buckets" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### ℹ️ Note" >> $GITHUB_STEP_SUMMARY
+                  echo "Your Lightsail infrastructure (instance, load balancer) remains intact." >> $GITHUB_STEP_SUMMARY
+                  echo "To redeploy observability, run the **Deploy Observability Stacks** workflow." >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,111 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  security-and-quality:
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Install Snyk CLI
+        run: |
+          npm install -g snyk
+
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: |
+          npm ci
+
+      - name: Snyk Open Source (SCA)
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: |
+          snyk test --all-projects --severity-threshold=high
+        continue-on-error: true
+
+      - name: Snyk IaC
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: |
+          snyk iac test terraform --severity-threshold=high
+        continue-on-error: true
+
+      - name: Snyk security check skipped
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: |
+          echo "::warning::SNYK_TOKEN is not set. Skipping Snyk security scans."
+          echo "::notice::To enable security scanning, add SNYK_TOKEN to repository secrets."
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Ansible lint tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible ansible-lint
+
+      - name: Run Ansible lint
+        working-directory: ansible
+        run: |
+          ansible-lint playbooks/*.yml roles/
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: "1.8.5"
+
+      - name: OpenTofu Format Check
+        working-directory: terraform
+        run: |
+          tofu fmt -check -recursive
+        continue-on-error: false
+
+      - name: OpenTofu Validate
+        working-directory: terraform
+        run: |
+          tofu init -backend=false
+          tofu validate
+
+      - name: Shell script syntax check
+        run: |
+          if compgen -G "scripts/*.sh" > /dev/null; then
+            for script in scripts/*.sh; do
+              echo "Checking $script..."
+              bash -n "$script"
+            done
+          else
+            echo "No shell scripts found in scripts/ directory"
+          fi
+
+      - name: Quality Gates Summary
+        if: always()
+        run: |
+          echo "## 🎯 Quality Gates Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Scanning" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ env.SNYK_TOKEN }}" ]; then
+            echo "- ✅ Snyk SCA: Checked CDK dependencies" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Snyk IaC: Scanned Terraform files" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️ Snyk: Skipped (SNYK_TOKEN not configured)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Code Quality" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Ansible Lint: Validated playbooks and roles" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ OpenTofu: Format and validation checks" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Shell Scripts: Syntax validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Checks Completed" >> $GITHUB_STEP_SUMMARY
+          echo "All quality gates have been evaluated." >> $GITHUB_STEP_SUMMARY

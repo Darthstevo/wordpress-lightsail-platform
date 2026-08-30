@@ -1,0 +1,6 @@
+---
+- name: Create backups and upload
+  hosts: lightsail
+  become: true
+  roles:
+    - backup

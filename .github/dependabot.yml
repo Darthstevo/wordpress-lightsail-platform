@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # CDK dependencies
+  - package-ecosystem: "npm"
+    directory: "/cdk"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(cdk)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cdk"
+    # Reviewer assignment (requires GitHub Pro for private repos)
+    # reviewers:
+    #   - "Darthstevo"
+    # Group AWS CDK updates together
+    groups:
+      aws-cdk:
+        patterns:
+          - "aws-cdk-lib"
+          - "@aws-cdk/*"
+    # Ignore major version updates (manual review preferred)
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    # Auto-merge minor/patch updates for GitHub Actions
+    # (handled by dependabot-auto-merge.yml workflow)

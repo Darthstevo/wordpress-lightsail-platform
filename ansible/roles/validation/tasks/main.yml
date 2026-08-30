@@ -1,0 +1,27 @@
+---
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Ensure nginx is running
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.services['nginx.service'].state == 'running'
+    fail_msg: "nginx is not running"
+
+- name: Ensure php-fpm is running
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.services[php_fpm_service + '.service'].state == 'running'
+    fail_msg: "php-fpm is not running"
+
+- name: Check WordPress HTTP endpoint
+  ansible.builtin.uri:
+    url: "{{ wp_site_url }}"
+    return_content: false
+    status_code: 200
+
+- name: Check DB connectivity
+  ansible.builtin.wait_for:
+    host: "{{ wp_db_host }}"
+    port: 3306
+    timeout: 5

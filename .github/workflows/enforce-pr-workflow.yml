@@ -1,0 +1,42 @@
+name: Enforce PR Workflow
+
+on:
+    push:
+        branches: [main]
+
+jobs:
+    check-pr-requirement:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check if push is from PR merge
+              run: |
+                  # This workflow runs on direct pushes to main
+                  # If we're here, someone pushed directly (not via PR merge)
+
+                  # Get the commit message
+                  COMMIT_MSG=$(git log -1 --pretty=%B)
+
+                  # Check if it's a merge commit from PR
+                  if [[ "$COMMIT_MSG" == *"Merge pull request"* ]] || [[ "$COMMIT_MSG" == *"Squashed commit"* ]]; then
+                    echo "✅ This is a PR merge - allowed"
+                    exit 0
+                  fi
+
+                  # Check if it's from GitHub Actions (automation)
+                  if [[ "${{ github.actor }}" == "github-actions[bot]" ]]; then
+                    echo "✅ This is from GitHub Actions automation - allowed"
+                    exit 0
+                  fi
+
+                  # Direct push detected
+                  echo "::error::❌ Direct push to main branch is not allowed!"
+                  echo "::error::Please use a Pull Request workflow:"
+                  echo "::error::  1. Create a feature branch: git checkout -b feat/my-feature"
+                  echo "::error::  2. Push your changes: git push origin feat/my-feature"
+                  echo "::error::  3. Create a PR on GitHub"
+                  echo "::error::  4. Merge after CI passes"
+                  echo ""
+                  echo "::warning::To undo this push:"
+                  echo "  git reset --hard HEAD~1"
+                  echo "  git push origin main --force"
+                  exit 1

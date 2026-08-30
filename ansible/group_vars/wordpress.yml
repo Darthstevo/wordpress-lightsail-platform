@@ -1,0 +1,6 @@
+---
+wp_db_name: "wordpress"
+wp_db_user: "wp_user"
+wp_db_host: "localhost"
+wp_db_password: "change-me"
+wp_backup_archive: "/tmp/wordpress-backup.tar.gz"

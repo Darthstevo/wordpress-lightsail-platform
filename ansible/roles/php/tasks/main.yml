@@ -1,0 +1,12 @@
+---
+- name: Install PHP packages
+  ansible.builtin.apt:
+    name: "{{ php_packages }}"
+    state: present
+  notify: Restart php-fpm
+
+- name: Ensure php-fpm is running
+  ansible.builtin.service:
+    name: "{{ php_fpm_service }}"
+    state: started
+    enabled: true

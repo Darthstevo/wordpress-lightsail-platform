@@ -1,0 +1,4 @@
+---
+- import_playbook: playbooks/bootstrap.yml
+- import_playbook: playbooks/wordpress.yml
+- import_playbook: playbooks/validate.yml

@@ -1,0 +1,22 @@
+---
+# Ansible-lint configuration
+# https://ansible.readthedocs.io/projects/lint/configuring/
+
+# Allow wp_ prefix for WordPress-specific variables across roles
+var_naming_pattern: "^(wp_|[a-z_][a-z0-9_]*_[a-z0-9_]*)$"
+
+# Skip certain rules that are too strict for this codebase
+skip_list:
+  - var-naming[no-role-prefix]  # Allow wp_ prefix instead of role prefix
+  - package-latest  # patch role intentionally upgrades to latest
+
+# Warnings only (don't fail the lint)
+warn_list:
+  - yaml[trailing-spaces]
+  - yaml[empty-lines]
+
+# Enable offline mode for faster linting
+offline: false
+
+# Use default rules
+use_default_rules: true

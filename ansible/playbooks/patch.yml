@@ -1,0 +1,6 @@
+---
+- name: Patch OS and DB packages
+  hosts: lightsail
+  become: true
+  roles:
+    - patch

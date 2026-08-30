@@ -1,0 +1,107 @@
+name: PR Quality Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Get PR files
+        id: pr-files
+        run: |
+          FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path' | tr '\n' ',' | sed 's/,$//')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: PR Size Check
+        id: size-check
+        run: |
+          ADDITIONS=$(gh pr view ${{ github.event.pull_request.number }} --json additions --jq '.additions')
+          DELETIONS=$(gh pr view ${{ github.event.pull_request.number }} --json deletions --jq '.deletions')
+          TOTAL_CHANGES=$((ADDITIONS + DELETIONS))
+          
+          echo "total_changes=$TOTAL_CHANGES" >> $GITHUB_OUTPUT
+          
+          if [ $TOTAL_CHANGES -gt 500 ]; then
+            echo "size=large" >> $GITHUB_OUTPUT
+            echo "message=⚠️ Large PR ($TOTAL_CHANGES changes). Consider breaking into smaller PRs." >> $GITHUB_OUTPUT
+          elif [ $TOTAL_CHANGES -gt 200 ]; then
+            echo "size=medium" >> $GITHUB_OUTPUT
+            echo "message=📦 Medium-sized PR ($TOTAL_CHANGES changes)." >> $GITHUB_OUTPUT
+          else
+            echo "size=small" >> $GITHUB_OUTPUT
+            echo "message=✅ Small PR ($TOTAL_CHANGES changes)." >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if Dependabot PR
+        id: dependabot-check
+        run: |
+          if [ "${{ github.actor }}" == "dependabot[bot]" ]; then
+            echo "is_dependabot=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_dependabot=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post PR Review Summary
+        if: steps.dependabot-check.outputs.is_dependabot == 'false'
+        run: |
+          cat << 'EOF' > review-comment.md
+          ## 🤖 Automated PR Review
+
+          ### PR Size: ${{ steps.size-check.outputs.size }}
+          ${{ steps.size-check.outputs.message }}
+
+          ### Checklist
+          - [ ] Changes are focused and related
+          - [ ] Tests added/updated for new functionality
+          - [ ] Documentation updated if needed
+          - [ ] No sensitive data (secrets, keys, passwords)
+          - [ ] Code follows project conventions
+
+          ### Files Changed
+          ```
+          ${{ steps.pr-files.outputs.files }}
+          ```
+
+          ---
+          *This is an automated review. Quality Gates workflow will run additional checks.*
+          EOF
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file review-comment.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for sensitive data
+        id: secrets-check
+        run: |
+          # Simple check for common sensitive patterns
+          SENSITIVE_FOUND=false
+          
+          if git diff origin/${{ github.base_ref }}...${{ github.head_ref }} | grep -iE "(password|api[_-]?key|secret|token|private[_-]?key|aws[_-]?access)" | grep -v "GITHUB_TOKEN"; then
+            echo "⚠️ Warning: Potential sensitive data detected in diff"
+            SENSITIVE_FOUND=true
+          fi
+          
+          echo "sensitive_found=$SENSITIVE_FOUND" >> $GITHUB_OUTPUT
+
+      - name: Comment on sensitive data detection
+        if: steps.secrets-check.outputs.sensitive_found == 'true'
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **Security Alert**: Potential sensitive data detected in this PR. Please review carefully and remove any secrets, keys, or passwords before merging."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

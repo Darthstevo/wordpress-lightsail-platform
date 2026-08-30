@@ -1,0 +1,19 @@
+{
+  "name": "lightsail-blog-platform-cdk",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CDK stacks for Route 53 and monitoring.",
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.265.0",
+    "constructs": "^10.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

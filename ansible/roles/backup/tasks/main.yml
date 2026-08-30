@@ -1,0 +1,17 @@
+---
+# Scaffold for backup tasks. Fill in with your preferred commands.
+
+# - name: Create wp-content archive
+#   ansible.builtin.command: >
+#     tar -czf {{ wp_backup_archive_path }} -C {{ wp_docroot }} wp-content
+#   # Uses: wp_backup_archive_path
+#
+# - name: Dump database
+#   ansible.builtin.command: >
+#     mysqldump -u {{ wp_db_user }} -p{{ wp_db_password }} {{ wp_db_name }} > {{ wp_db_dump_path }}
+#   # Uses: wp_db_dump_path
+#
+# - name: Upload backups to S3
+#   ansible.builtin.command: >
+#     aws s3 cp {{ wp_backup_archive_path }} s3://{{ wp_backup_bucket }}/
+#   # Uses: wp_backup_bucket

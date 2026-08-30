@@ -1,0 +1,19 @@
+---
+- name: Update apt cache and upgrade packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+  when: ansible_pkg_mgr == "apt"
+
+- name: Update yum packages (Amazon Linux/RHEL)
+  ansible.builtin.dnf:
+    name: "*"
+    state: present
+    update_only: true
+  when: ansible_pkg_mgr == "yum"
+
+- name: Ensure database service is running (MySQL/MariaDB)
+  ansible.builtin.service:
+    name: "{{ db_service_name | default('mysql') }}"
+    state: started
+  when: db_service_name is defined

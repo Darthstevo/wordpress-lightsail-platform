@@ -1,0 +1,6 @@
+---
+- name: Validate WordPress platform
+  hosts: lightsail
+  become: true
+  roles:
+    - validation

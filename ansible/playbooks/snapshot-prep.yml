@@ -1,0 +1,6 @@
+---
+- name: Prepare for golden snapshot
+  hosts: lightsail
+  become: true
+  roles:
+    - hardening

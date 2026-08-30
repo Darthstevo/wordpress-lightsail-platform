@@ -1,0 +1,6 @@
+---
+- name: Bootstrap Lightsail host
+  hosts: lightsail
+  become: true
+  roles:
+    - common

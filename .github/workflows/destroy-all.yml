@@ -1,0 +1,146 @@
+name: Destroy Infrastructure (OpenTofu + CDK)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  tofu_destroy:
+    name: Destroy Lightsail (OpenTofu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # Destroy should complete in ~5 min
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
+          aws-region: us-east-1
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v2
+
+      - name: Cache OpenTofu plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            terraform/.terraform
+          key: ${{ runner.os }}-tofu-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-tofu-
+
+      - name: OpenTofu init (with retry)
+        working-directory: terraform
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
+
+          for attempt in 1 2 3; do
+            echo "🔄 Attempt $attempt/3: Running tofu init..."
+            if tofu init; then
+              echo "✅ Init successful"
+              exit 0
+            fi
+            echo "⚠️  Init failed, waiting before retry..."
+            sleep $((attempt * 10))
+          done
+
+          echo "❌ Init failed after 3 attempts"
+          exit 1
+
+      - name: Import existing resources into state (if any)
+        working-directory: terraform
+        timeout-minutes: 5
+        run: |
+          set +e
+          echo "📥 Importing existing resources for clean destroy..."
+
+          # Import Route53 A records
+          zone_id=$(printf 'var.route53_zone_id\n' | timeout 10s tofu console 2>/dev/null | tr -d '"')
+          enable_a_records=$(printf 'var.enable_route53_a_records\n' | timeout 10s tofu console 2>/dev/null | tr -d '"')
+          a_records_json=$(printf 'jsonencode(var.route53_a_record_names)\n' | timeout 10s tofu console 2>/dev/null || echo "[]")
+
+          if [ "$enable_a_records" = "true" ]; then
+            echo "$a_records_json" | timeout 10s jq -r '.[]' | while read -r record_name; do
+              if [ -n "$record_name" ]; then
+                record_fqdn="${record_name%.}."
+                record_id="${zone_id}_${record_fqdn}_A"
+                timeout 30s tofu import "aws_route53_record.lightsail_a_record[\"${record_name}\"]" "$record_id" 2>/dev/null || true
+              fi
+            done
+          fi
+
+          # Import Route53 validation records
+          records_json=$(timeout 10s tofu output -json load_balancer_certificate_validation_records 2>/dev/null || echo "")
+          if [ -n "$records_json" ] && [ "$records_json" != "null" ]; then
+            echo "$records_json" | timeout 10s jq -r 'to_entries[] | "\(.key)|\(.value.resource_record_name)|\(.value.resource_record_type)"' | \
+              while IFS='|' read -r idx name type; do
+                if [ -n "$name" ] && [ -n "$type" ]; then
+                  record_id="${zone_id}_${name}_${type}"
+                  timeout 30s tofu import "aws_route53_record.lb_cert_validation[\"${idx}\"]" "$record_id" 2>/dev/null || true
+                fi
+              done
+          fi
+
+          # Import Lightsail resources (skip key pair - cannot be imported)
+          echo "Importing Lightsail resources..."
+          timeout 30s tofu import aws_lightsail_instance.blog "blog-dev-1" 2>/dev/null || true
+          timeout 30s tofu import aws_lightsail_static_ip.blog_ip "blog-dev-ip" 2>/dev/null || true
+          timeout 30s tofu import aws_lightsail_static_ip_attachment.blog_ip_attach "blog-dev-ip" 2>/dev/null || true
+          timeout 30s tofu import aws_lightsail_lb.blog_lb "blog-dev-lb" 2>/dev/null || true
+          timeout 30s tofu import aws_lightsail_lb_attachment.blog_lb_attach "blog-dev-lb,blog-dev-1" 2>/dev/null || true
+          timeout 30s tofu import aws_lightsail_lb_certificate.blog_cert "blog-dev-lb,blog-dev-cert" 2>/dev/null || true
+
+          set -e
+          echo "✅ Import complete"
+
+      - name: OpenTofu destroy
+        working-directory: terraform
+        run: |
+          tofu destroy -auto-approve \
+            -var="enable_cert_validation_records=true" \
+            -var="cicd_public_key="
+
+      - name: Cleanup orphaned key pair
+        run: |
+          echo "🔑 Deleting key pair (cannot be managed by Terraform)..."
+          aws lightsail delete-key-pair --key-pair-name blog-wordpress-key 2>/dev/null || echo "Key pair not found or already deleted"
+          echo "✅ Cleanup complete"
+
+  cdk_destroy:
+    name: Destroy CDK stacks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5 # CDK destroy should be quick
+    environment: dev
+    needs: tofu_destroy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+          aws-region: us-east-1
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: |
+          npm ci
+
+      - name: CDK destroy (requires confirmation)
+        working-directory: cdk
+        run: |
+          npx cdk destroy --all --force

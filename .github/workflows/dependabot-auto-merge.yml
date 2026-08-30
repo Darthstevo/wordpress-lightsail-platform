@@ -1,0 +1,108 @@
+name: Dependabot Auto-Merge
+
+on:
+    # Trigger after Quality Gates workflow completes
+    workflow_run:
+        workflows: ["Quality Gates"]
+        types: [completed]
+
+permissions:
+    contents: write
+    pull-requests: write
+    checks: read
+
+jobs:
+    dependabot-auto-merge:
+        runs-on: ubuntu-latest
+        if: |
+            github.event.workflow_run.conclusion == 'success' &&
+            github.event.workflow_run.event == 'pull_request'
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Get PR details
+              id: pr
+              run: |
+                  PR_DATA=$(gh pr list --repo ${{ github.repository }} --head ${{ github.event.workflow_run.head_branch }} --json number,author,title,body --jq '.[0] | select(.author.login == "app/dependabot")')
+                  if [ -z "$PR_DATA" ]; then
+                    echo "Not a Dependabot PR, skipping"
+                    echo "skip=true" >> $GITHUB_OUTPUT
+                    exit 0
+                  fi
+                  
+                  PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+                  PR_TITLE=$(echo "$PR_DATA" | jq -r '.title')
+                  PR_BODY=$(echo "$PR_DATA" | jq -r '.body')
+                  
+                  echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+                  echo "skip=false" >> $GITHUB_OUTPUT
+                  
+                  # Try to determine update type from PR body first
+                  if echo "$PR_BODY" | grep -q "version-update:semver-major"; then
+                    UPDATE_TYPE="major"
+                  elif echo "$PR_BODY" | grep -q "version-update:semver-minor"; then
+                    UPDATE_TYPE="minor"
+                  elif echo "$PR_BODY" | grep -q "version-update:semver-patch"; then
+                    UPDATE_TYPE="patch"
+                  else
+                    # Fallback: Parse version from title (e.g., "Bump package from 1.2.3 to 2.0.0")
+                    FROM_VERSION=$(echo "$PR_TITLE" | grep -oP 'from \K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                    TO_VERSION=$(echo "$PR_TITLE" | grep -oP 'to \K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                    
+                    if [ -n "$FROM_VERSION" ] && [ -n "$TO_VERSION" ]; then
+                      FROM_MAJOR=$(echo "$FROM_VERSION" | cut -d. -f1)
+                      TO_MAJOR=$(echo "$TO_VERSION" | cut -d. -f1)
+                      FROM_MINOR=$(echo "$FROM_VERSION" | cut -d. -f2)
+                      TO_MINOR=$(echo "$TO_VERSION" | cut -d. -f2)
+                      
+                      if [ "$FROM_MAJOR" != "$TO_MAJOR" ]; then
+                        UPDATE_TYPE="major"
+                      elif [ "$FROM_MINOR" != "$TO_MINOR" ]; then
+                        UPDATE_TYPE="minor"
+                      else
+                        UPDATE_TYPE="patch"
+                      fi
+                    else
+                      UPDATE_TYPE="unknown"
+                    fi
+                  fi
+                  
+                  echo "update_type=$UPDATE_TYPE" >> $GITHUB_OUTPUT
+                  echo "PR #$PR_NUMBER - Update type: $UPDATE_TYPE (from: $FROM_VERSION, to: $TO_VERSION)"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Auto-merge safe updates
+              if: |
+                  steps.pr.outputs.skip == 'false' &&
+                  (steps.pr.outputs.update_type == 'patch' || steps.pr.outputs.update_type == 'minor')
+              run: |
+                  echo "✅ Safe dependency update detected: ${{ steps.pr.outputs.update_type }}"
+                  echo "Auto-merging PR #${{ steps.pr.outputs.number }}"
+                  
+                  # Add comment explaining the auto-merge
+                  gh pr comment ${{ steps.pr.outputs.number }} --body "🤖 **Auto-merging safe dependency update**
+                  
+                  - Update type: ${{ steps.pr.outputs.update_type }}
+                  - CI status: ✅ Passed
+                  - Merging without approval (free tier workaround)"
+                  
+                  # Merge directly without approval (works on free tier)
+                  gh pr merge ${{ steps.pr.outputs.number }} --squash --body "Auto-merged by Dependabot workflow after CI passed"
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Comment on major updates
+              if: |
+                  steps.pr.outputs.skip == 'false' &&
+                  steps.pr.outputs.update_type == 'major'
+              run: |
+                  gh pr comment ${{ steps.pr.outputs.number }} --body "⚠️ **Major version update detected!** 
+
+                  This PR requires manual review before merging.
+
+                  - Update type: Major version
+                  - Please review breaking changes before merging."
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
