@@ -50,3 +50,29 @@ cdk/node_modules/
 
 # Local environment file
 .env
+
+# Local secret files and vault password helpers
+.vault-pass
+.vault-pass*
+*.vault_pass
+*.vault_pass*
+
+# SSH/private key material
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# Backup and dump artifacts
+*.sql
+*.sql.gz
+*.dump
+*.tar
+*.tar.gz
+*.tgz
+
+# WordPress backup payloads
+wp-content.tar.gz
+wordpress.sql.gz

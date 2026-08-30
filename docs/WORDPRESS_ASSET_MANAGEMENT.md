@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains the recommended approach for managing WordPress code, themes, plugins, and media assets in a production environment.
+This document explains a production-oriented approach for managing WordPress code, themes, plugins, and media assets.
 
 ## Storage Strategy
 

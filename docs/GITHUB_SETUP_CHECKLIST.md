@@ -73,7 +73,7 @@ Go to: `https://github.com/your-org/wordpress-lightsail-platform/settings/secret
   public_key_path = "~/.ssh/wordpress_platform_key.pub"  # default
   key_pair_name = "wordpress-platform-key"                # default
   route53_zone_id = "Z0123456789ABCDEFGHIJ"           # REQUIRED - your hosted zone ID
-  certificate_domain_name = "blog.yourdomain.com"      # REQUIRED - your domain
+  certificate_domain_name = "yourdomain.com"           # REQUIRED - your domain
   certificate_alternative_names = []                   # optional SANs
   ```
 
@@ -81,7 +81,7 @@ Go to: `https://github.com/your-org/wordpress-lightsail-platform/settings/secret
 
   ```ini
   # Local testing: uncomment and set real IP
-  # lightsail ansible_host=YOUR.IP.ADDRESS ansible_ssh_private_key_file=~/.ssh/lightsail_blog_key
+  # lightsail ansible_host=YOUR.IP.ADDRESS ansible_ssh_private_key_file=~/.ssh/lightsail_platform_key
 
   # CI/CD: workflow will inject this dynamically
   lightsail ansible_host=LIGHTSAIL_STATIC_IP ansible_ssh_private_key_file=~/.ssh/lightsail_key
@@ -99,12 +99,12 @@ tofu init
 
 # Plan (dry run)
 tofu plan \
-  -var="key_pair_name=blog-wordpress-key" \
+  -var="key_pair_name=wordpress-platform-key" \
   -var="route53_zone_id=YOUR_ZONE_ID"
 
 # Apply (if plan looks good)
 tofu apply \
-  -var="key_pair_name=blog-wordpress-key" \
+  -var="key_pair_name=wordpress-platform-key" \
   -var="route53_zone_id=YOUR_ZONE_ID"
 ```
 
@@ -125,7 +125,7 @@ ansible-vault view group_vars/wordpress.vault.yml
 ansible lightsail \
   -i inventory/dev.ini \
   -m ping \
-  --private-key ~/.ssh/lightsail_blog_key \
+  --private-key ~/.ssh/lightsail_platform_key \
   -e "ansible_host=$STATIC_IP"
 
 # Run playbook

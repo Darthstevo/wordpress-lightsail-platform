@@ -59,7 +59,7 @@ tofu apply -var="public_key_path=/path/to/your/key.pub"
 1. Copy the **entire** private key including headers:
 
    ```bash
-  cat ~/.ssh/wordpress_platform_key
+   cat ~/.ssh/wordpress_platform_key
    ```
 
 2. Go to: `https://github.com/your-org/wordpress-lightsail-platform/settings/secrets/actions`

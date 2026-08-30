@@ -1,6 +1,8 @@
 # CDK Observability Stacks
 
-Production-grade monitoring, alerting, and synthetic uptime checks for the Lightsail Blog Platform.
+Production-oriented monitoring, alerting, and synthetic uptime checks for the WordPress Lightsail Platform.
+
+This CDK package is an **optional enhancement layer**. Core platform provisioning and runtime configuration remain in OpenTofu/Terraform and Ansible.
 
 ## Architecture
 
@@ -14,7 +16,7 @@ This CDK app deploys **3 observability stacks** in order:
 
 ### Prerequisites
 
-- Lightsail infrastructure deployed (blog-dev-1 instance, blog-dev-lb load balancer)
+- Lightsail infrastructure deployed (wordpress-dev-1 instance, wordpress-dev-lb load balancer)
 - Website accessible via HTTPS
 - AWS CDK CLI installed (`npm install -g aws-cdk`)
 
@@ -26,10 +28,10 @@ npm install
 
 # Deploy monitoring + alerts (no dependency)
 npx cdk deploy LightsailMonitoringStack LightsailAlertsStack \
-  --parameters LightsailMonitoringStack:InstanceName=blog-dev-1 \
-  --parameters LightsailMonitoringStack:LoadBalancerName=blog-dev-lb \
-  --parameters LightsailAlertsStack:InstanceName=blog-dev-1 \
-  --parameters LightsailAlertsStack:LoadBalancerName=blog-dev-lb \
+  --parameters LightsailMonitoringStack:InstanceName=wordpress-dev-1 \
+  --parameters LightsailMonitoringStack:LoadBalancerName=wordpress-dev-lb \
+  --parameters LightsailAlertsStack:InstanceName=wordpress-dev-1 \
+  --parameters LightsailAlertsStack:LoadBalancerName=wordpress-dev-lb \
   --parameters LightsailAlertsStack:AlertEmail=your-email@example.com
 
 # Get SNS Topic ARN from AlertsStack output
@@ -74,7 +76,7 @@ npx cdk deploy LightsailSyntheticMonitoringStack \
 - Alarm on 2 consecutive failures
 - Cost: ~$5-10/month
 
-**Total Cost**: ~$9-14/month for production-grade observability
+**Total Cost**: roughly ~$9-14/month for this observability layer (varies by usage)
 
 ## Deployment Order
 
@@ -188,7 +190,7 @@ To reduce costs:
 - Reduce S3 retention from 7 days → 3 days
 - Remove SyntheticMonitoringStack entirely (saves ~$5-10/month)
 
-Monitoring + Alerts stacks are ~$4/month total and highly recommended.
+Monitoring + Alerts stacks are a lower-cost entry point for teams that want visibility without full synthetic monitoring.
 
 ## ACM note
 

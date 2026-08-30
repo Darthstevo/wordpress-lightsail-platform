@@ -2,7 +2,7 @@
 
 ## Complete Infrastructure Deployment
 
-Follow this order to deploy the full Lightsail Blog Platform with observability.
+Follow this order to deploy the full WordPress Lightsail Platform template with observability.
 
 ---
 
@@ -16,9 +16,9 @@ Workflow: provision-and-configure.yml
 
 **What it deploys:**
 
-1. Lightsail instance (`blog-dev-1`)
-2. Static IP (`blog-dev-ip`)
-3. Load balancer (`blog-dev-lb`)
+1. Lightsail instance (`wordpress-dev-1`)
+2. Static IP (`wordpress-dev-ip`)
+3. Load balancer (`wordpress-dev-lb`)
 4. TLS certificate
 5. Route53 DNS records
 6. WordPress configuration (Ansible)
@@ -38,8 +38,8 @@ cd cdk
 npm install
 
 npx cdk deploy LightsailMonitoringStack \
-  --parameters InstanceName=blog-dev-1 \
-  --parameters LoadBalancerName=blog-dev-lb
+  --parameters InstanceName=wordpress-dev-1 \
+  --parameters LoadBalancerName=wordpress-dev-lb
 ```
 
 **What it creates:**
@@ -55,8 +55,8 @@ npx cdk deploy LightsailMonitoringStack \
 
 ```bash
 npx cdk deploy LightsailAlertsStack \
-  --parameters InstanceName=blog-dev-1 \
-  --parameters LoadBalancerName=blog-dev-lb \
+  --parameters InstanceName=wordpress-dev-1 \
+  --parameters LoadBalancerName=wordpress-dev-lb \
   --parameters AlertEmail=your-email@example.com
 ```
 

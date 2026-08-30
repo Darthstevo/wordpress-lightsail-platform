@@ -1,6 +1,6 @@
 # Learning Path (Ansible + CDK)
 
-This guide is meant to help you learn while building the Lightsail blog platform.
+This guide is meant to help you learn while building the WordPress Lightsail platform template.
 
 ## Ansible milestones
 

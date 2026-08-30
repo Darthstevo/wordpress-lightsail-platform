@@ -1,25 +1,45 @@
 # WordPress Lightsail Platform
 
-Portable WordPress platform template on AWS Lightsail with **Infrastructure as Code**.
+Portable, production-minded WordPress platform template on AWS Lightsail with **Infrastructure as Code**.
 
 This repository is the **platform/infrastructure repo** only (OpenTofu/Terraform + Ansible + optional CDK observability).
 It is intended for **fresh WordPress deployments**. Site-specific themes/plugins/content artifacts should live in a separate app repository.
 
 ## 🎯 What Is This?
 
-A **reusable infrastructure template** that automatically provisions and configures everything needed to run WordPress on AWS:
+A **reusable WordPress platform** that provisions and configures core runtime infrastructure on AWS:
 
 - ✅ AWS Lightsail instance with Ubuntu 22.04
 - ✅ Nginx web server with TLS/HTTPS
 - ✅ PHP 8.2 with optimized settings
 - ✅ MySQL 8.0 database
 - ✅ WordPress latest version
-- ✅ Load balancer with automatic TLS certificates
-- ✅ CloudWatch monitoring and alerting
+- ✅ Optional load balancer with automatic TLS certificates
+- ✅ Optional CloudWatch monitoring and alerting
 - ✅ Optional S3 backup/media patterns
 - ✅ Security hardening out of the box
 
-**Cost:** ~$30-36/month total (Lightsail $21.50 + monitoring ~$9-14)
+**Cost posture:** low-cost by default, with optional enhancements (especially a load balancer and synthetic monitoring) when availability/operational needs justify the spend.
+
+### Platform ownership vs. application ownership
+
+This repository is intentionally the **platform layer**. It should not be the long-term home for a specific site's content.
+
+**Platform repository owns:**
+
+- AWS/Lightsail infrastructure lifecycle
+- DNS and TLS integration
+- WordPress runtime (Nginx, PHP, database connectivity)
+- Server hardening and baseline security
+- Optional observability and backup/recovery patterns
+- Repeatable configuration management automation
+
+**Separate WordPress application/site repository owns:**
+
+- Themes and custom plugins
+- Site-specific assets and content workflows
+- Site-specific configuration and deployment artifacts
+- Application release process
 
 ## 🚀 Quick Start
 
@@ -115,7 +135,10 @@ Complete the WordPress installation at `https://yourdomain.com/wp-admin/install.
 
 ## 🎨 Customization
 
-### Add Your WordPress Theme
+### Add Your WordPress Theme (manual bootstrap path)
+
+Manual SSH-based theme/plugin deployment is acceptable for initial setup and troubleshooting.
+For ongoing operations, the preferred model is to deploy site artifacts from a separate WordPress application repository.
 
 ```bash
 # On the deployed server
@@ -129,7 +152,7 @@ Then activate via WordPress Admin → Appearance → Themes
 
 ### Add Custom Plugins
 
-Same process as themes:
+Same manual process as themes:
 
 ```bash
 cd /var/www/html/wp-content/plugins
@@ -147,16 +170,16 @@ define('WP_CACHE', true);
 // Add your custom defines here
 ```
 
-## 📊 Monitoring
+## 📊 Optional Observability (CDK)
 
-Every deployment includes:
+Observability stacks are optional enhancements and can be deployed when needed:
 
 - **CloudWatch Dashboard** - Real-time metrics
 - **5 Critical Alarms** - Email alerts
 - **Uptime Monitoring** - 5-minute checks
 - **Cost Tracking** - Budget alerts
 
-Deploy monitoring stacks:
+Deploy observability stacks:
 
 ```bash
 cd cdk
@@ -171,7 +194,7 @@ See [docs/OBSERVABILITY_STACKS.md](docs/OBSERVABILITY_STACKS.md) for details.
 - ✅ Automatic security updates (unattended-upgrades)
 - ✅ UFW firewall configured
 - ✅ SSH hardening (key-only, no root)
-- ✅ HTTPS enforced via load balancer
+- ✅ HTTPS supported (with or without load balancer, depending on chosen topology)
 - ✅ WordPress security headers
 - ✅ MySQL secured (no remote access)
 - ✅ PHP security settings optimized
@@ -180,10 +203,20 @@ See [docs/OBSERVABILITY_STACKS.md](docs/OBSERVABILITY_STACKS.md) for details.
 
 ### Included Optimizations
 
-- Nano instance ($3.50/month) sufficient for most blogs
+- Smaller instance sizes (for example nano) are typically best for labs, development, testing, and very low-traffic sites
 - S3 media offload (optional, saves disk space)
 - CloudFront CDN integration (optional)
 - Lifecycle policies for backups (auto-delete old)
+
+### Conceptual deployment profiles
+
+Use these as decision guides (documentation-only for now):
+
+- **Minimal**: single Lightsail instance, managed database, no load balancer, basic backups
+- **Recommended**: right-sized instance, managed database, HTTPS, baseline monitoring, snapshots/backups
+- **Enhanced**: optional load balancer, additional monitoring/alerting, higher-availability-focused operations
+
+Choose sizing and optional components based on actual traffic, availability targets, and recovery objectives.
 
 ### Cost Breakdown
 
@@ -232,6 +265,11 @@ Compare to:
 - **Your app repo**: themes, plugins, media/content workflows, and WordPress customization code.
 - **Recommended flow**: deploy platform here, then deploy app artifacts from your app repo.
 
+### Future deployment model (target state)
+
+`wordpress-lightsail-platform` provisions/configures the runtime platform,
+and a separate WordPress site repository delivers themes/plugins/site artifacts into that runtime.
+
 ### Recommended Setup
 
 **For Your WordPress Code:**
@@ -258,7 +296,7 @@ Use standard WordPress local development tools:
 - **MAMP/WAMP**
 - **Docker Compose**
 
-Deploy to production when ready:
+Deploy to your target environment when ready:
 
 ```bash
 git push origin main  # Triggers deployment
@@ -354,10 +392,10 @@ After deploying:
    - Yoast SEO
 4. **Configure monitoring** (deploy CDK stacks)
 5. **Set up backups** (automated via workflow)
-6. **Go live!** Update DNS to production domain
+6. **Go live!** Update DNS to your target domain
 
 ---
 
-**Built with ❤️ for WordPress developers who want production-grade infrastructure without the complexity.**
+**Built for teams and developers who want a practical, production-oriented DevOps/Platform Engineering reference implementation.**
 
 ⭐ Star this repo if you find it useful!

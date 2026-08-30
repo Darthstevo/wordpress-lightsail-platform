@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Lightsail Blog Platform uses a **3-tier observability architecture** deployed via AWS CDK:
+The WordPress Lightsail Platform template uses a **3-tier observability architecture** deployed via AWS CDK:
 
 1. **MonitoringStack** - Real-time metrics dashboard
 2. **AlertsStack** - Proactive alerting with SNS notifications
 3. **SyntheticMonitoringStack** - Active uptime monitoring
 
-These stacks provide production-grade observability, demonstrating best practices for monitoring, alerting, and incident detection.
+These stacks provide a production-oriented observability reference, demonstrating practical monitoring, alerting, and incident detection patterns.
 
 ---
 
@@ -67,8 +67,8 @@ These stacks provide production-grade observability, demonstrating best practice
 
 **Parameters**:
 
-- `InstanceName` - Lightsail instance name (default: `blog-dev-1`)
-- `LoadBalancerName` - Load balancer name (default: `blog-dev-lb`)
+- `InstanceName` - Lightsail instance name (default: `wordpress-dev-1`)
+- `LoadBalancerName` - Load balancer name (default: `wordpress-dev-lb`)
 - `DashboardName` - Dashboard name (default: `wordpress-platform-dashboard`)
 
 **Outputs**:
@@ -148,6 +148,11 @@ These stacks provide production-grade observability, demonstrating best practice
 
 **Dependencies**: Requires AlertsStack to be deployed first (for SNS Topic ARN)
 
+## Optionality and scope
+
+- CDK observability stacks are **optional** and not required for baseline WordPress platform provisioning.
+- Use them when operational visibility and alerting needs justify extra cost and complexity.
+
 ---
 
 ## Deployment Order
@@ -155,8 +160,8 @@ These stacks provide production-grade observability, demonstrating best practice
 ### Prerequisites
 
 1. ✅ Lightsail infrastructure deployed (OpenTofu)
-2. ✅ Instance running (`blog-dev-1`)
-3. ✅ Load balancer configured (`blog-dev-lb`)
+2. ✅ Instance running (`wordpress-dev-1`)
+3. ✅ Load balancer configured (`wordpress-dev-lb`)
 4. ✅ Website accessible via HTTPS
 
 ### Deploy All Stacks (Recommended)
@@ -169,10 +174,10 @@ npm install
 
 # Deploy all 3 stacks in order
 npx cdk deploy --all \
-  --parameters LightsailMonitoringStack:InstanceName=blog-dev-1 \
-  --parameters LightsailMonitoringStack:LoadBalancerName=blog-dev-lb \
-  --parameters LightsailAlertsStack:InstanceName=blog-dev-1 \
-  --parameters LightsailAlertsStack:LoadBalancerName=blog-dev-lb \
+  --parameters LightsailMonitoringStack:InstanceName=wordpress-dev-1 \
+  --parameters LightsailMonitoringStack:LoadBalancerName=wordpress-dev-lb \
+  --parameters LightsailAlertsStack:InstanceName=wordpress-dev-1 \
+  --parameters LightsailAlertsStack:LoadBalancerName=wordpress-dev-lb \
   --parameters LightsailAlertsStack:AlertEmail=your-email@example.com \
   --parameters LightsailSyntheticMonitoringStack:WebsiteUrl=https://example.com \
   --parameters LightsailSyntheticMonitoringStack:AlertTopicArn=<arn-from-alerts-output>
@@ -185,13 +190,13 @@ npx cdk deploy --all \
 ```bash
 # 1. Monitoring Stack (Dashboard only)
 npx cdk deploy LightsailMonitoringStack \
-  --parameters InstanceName=blog-dev-1 \
-  --parameters LoadBalancerName=blog-dev-lb
+  --parameters InstanceName=wordpress-dev-1 \
+  --parameters LoadBalancerName=wordpress-dev-lb
 
 # 2. Alerts Stack (Alarms + SNS)
 npx cdk deploy LightsailAlertsStack \
-  --parameters InstanceName=blog-dev-1 \
-  --parameters LoadBalancerName=blog-dev-lb \
+  --parameters InstanceName=wordpress-dev-1 \
+  --parameters LoadBalancerName=wordpress-dev-lb \
   --parameters AlertEmail=your-email@example.com
 
 # Get SNS Topic ARN from output, then:
@@ -199,7 +204,7 @@ npx cdk deploy LightsailAlertsStack \
 # 3. Synthetic Monitoring (Canary)
 npx cdk deploy LightsailSyntheticMonitoringStack \
   --parameters WebsiteUrl=https://example.com \
-  --parameters AlertTopicArn=arn:aws:sns:us-east-1:123456789012:lightsail-blog-alerts
+  --parameters AlertTopicArn=arn:aws:sns:us-east-1:123456789012:lightsail-platform-alerts
 ```
 
 ---
@@ -341,7 +346,7 @@ deploy_observability:
 | MonitoringStack          | ~$3              | Dashboard only, no data charges        |
 | AlertsStack              | ~$1              | First 10 alarms free, $0.10 each after |
 | SyntheticMonitoringStack | ~$5-10           | Canary runs, S3 storage                |
-| **Total**                | **~$9-14/month** | Production-grade observability         |
+| **Total**                | **~$9-14/month** | Production-oriented observability layer |
 
 Compare to:
 
@@ -437,4 +442,4 @@ gh workflow run destroy-all.yml
 ---
 
 **Last Updated**: May 31, 2026
-**Maintained By**: Lightsail Blog Platform Team
+**Maintained By**: WordPress Lightsail Platform Team
