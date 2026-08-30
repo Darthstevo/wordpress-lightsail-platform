@@ -82,7 +82,7 @@ TOPIC_ARN=$(aws cloudformation describe-stacks \
   --output text)
 
 npx cdk deploy LightsailSyntheticMonitoringStack \
-  --parameters WebsiteUrl=https://thebasictek.com \
+  --parameters WebsiteUrl=https://example.com \
   --parameters AlertTopicArn=$TOPIC_ARN
 ```
 

@@ -16,7 +16,7 @@ updates:
       - "cdk"
     # Reviewer assignment (requires GitHub Pro for private repos)
     # reviewers:
-    #   - "Darthstevo"
+  #   - "your-org"
     # Group AWS CDK updates together
     groups:
       aws-cdk:

@@ -15,7 +15,7 @@ variable "availability_zone" {
 variable "instance_name" {
   description = "Lightsail instance name"
   type        = string
-  default     = "blog-dev-1"
+  default     = "wordpress-dev-1"
 }
 
 variable "blueprint_id" {
@@ -33,13 +33,13 @@ variable "bundle_id" {
 variable "key_pair_name" {
   description = "Lightsail key pair name"
   type        = string
-  default     = "blog-wordpress-key"
+  default     = "wordpress-platform-key"
 }
 
 variable "public_key_path" {
   description = "Path to SSH public key file (for Lightsail key pair resource)"
   type        = string
-  default     = "~/.ssh/lightsail_blog_key.pub"
+  default     = "~/.ssh/wordpress_platform_key.pub"
 }
 
 variable "cicd_public_key" {
@@ -51,13 +51,13 @@ variable "cicd_public_key" {
 variable "static_ip_name" {
   description = "Lightsail static IP name"
   type        = string
-  default     = "blog-dev-ip"
+  default     = "wordpress-dev-ip"
 }
 
 variable "load_balancer_name" {
   description = "Lightsail load balancer name"
   type        = string
-  default     = "blog-dev-lb"
+  default     = "wordpress-dev-lb"
 }
 
 variable "load_balancer_instance_port" {
@@ -75,25 +75,25 @@ variable "load_balancer_health_check_path" {
 variable "load_balancer_certificate_name" {
   description = "Lightsail TLS certificate name"
   type        = string
-  default     = "blog-dev-cert"
+  default     = "wordpress-dev-cert"
 }
 
 variable "load_balancer_certificate_domain" {
   description = "Primary domain for the TLS certificate"
   type        = string
-  default     = "thebasictek.com"
+  default     = "example.com"
 }
 
 variable "load_balancer_certificate_alternative_names" {
   description = "Subject alternative names for the TLS certificate"
   type        = list(string)
-  default     = ["www.thebasictek.com"]
+  default     = ["www.example.com"]
 }
 
 variable "route53_zone_id" {
   description = "Route 53 hosted zone ID for DNS validation records"
   type        = string
-  default     = "Z0869026ZCPNGM8HB5I6"
+  default     = "Z123EXAMPLE"
 }
 
 variable "enable_route53_a_records" {
@@ -105,7 +105,7 @@ variable "enable_route53_a_records" {
 variable "route53_a_record_names" {
   description = "Route53 record names to create for the static IP"
   type        = list(string)
-  default     = ["thebasictek.com"]
+  default     = ["example.com"]
 }
 
 variable "enable_cert_validation_records" {

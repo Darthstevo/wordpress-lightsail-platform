@@ -1,0 +1,8 @@
+---
+# Example structure only. Do not commit real secrets.
+# Copy to ansible/group_vars/wordpress.vault.yml and optionally encrypt it:
+# ansible-vault encrypt ansible/group_vars/wordpress.vault.yml
+
+wp_db_password: "replace-with-strong-password"
+wp_admin_password: "replace-with-strong-password"
+wp_admin_email: "admin@example.com"

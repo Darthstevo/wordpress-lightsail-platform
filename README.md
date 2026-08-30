@@ -1,6 +1,9 @@
 # WordPress Lightsail Platform
 
-Production-grade WordPress hosting platform on AWS Lightsail with **Infrastructure as Code**. Deploy custom WordPress sites with zero infrastructure knowledge—just focus on your themes and plugins.
+Portable WordPress platform template on AWS Lightsail with **Infrastructure as Code**.
+
+This repository is the **platform/infrastructure repo** only (OpenTofu/Terraform + Ansible + optional CDK observability).
+It is intended for **fresh WordPress deployments**. Site-specific themes/plugins/content artifacts should live in a separate app repository.
 
 ## 🎯 What Is This?
 
@@ -22,14 +25,14 @@ A **reusable infrastructure template** that automatically provisions and configu
 
 ### Prerequisites
 
-1. AWS account with Route53 hosted zone
-2. GitHub repository for your WordPress site
+1. AWS account with Route53 hosted zone for your domain
+2. A separate app repository for your site-specific WordPress artifacts (themes/plugins/content)
 3. Basic familiarity with Git
 
 ### 1. Fork/Clone This Repository
 
 ```bash
-gh repo fork Darthstevo/wordpress-lightsail-platform --clone
+gh repo fork your-org/wordpress-lightsail-platform --clone
 cd wordpress-lightsail-platform
 ```
 
@@ -37,20 +40,41 @@ cd wordpress-lightsail-platform
 
 Go to your repository **Settings → Secrets and variables → Actions**, and add:
 
-**Repository Variable:**
+**Repository Variables (minimum):**
 
-| Variable Name | Description | How to Get |
-|------------|-------------|------------|
-| `AWS_ROLE_ARN_TERRAFORM` | IAM role for infrastructure | See [docs/github-oidc-setup.md](docs/github-oidc-setup.md) |
+| Variable Name                  | Description                                            |
+| ------------------------------ | ------------------------------------------------------ |
+| `AWS_ROLE_ARN_TERRAFORM`       | IAM role ARN for OpenTofu/Terraform workflow           |
+| `AWS_ROLE_ARN_CDK`             | IAM role ARN for CDK observability workflow            |
+| `AWS_REGION`                   | AWS region (for example: `us-east-1`)                  |
+| `WP_DOMAIN`                    | Primary domain (for example: `example.com`)            |
+| `ROUTE53_ZONE_ID`              | Hosted zone ID (for example: `Z123EXAMPLE`)            |
+| `LIGHTSAIL_INSTANCE_NAME`      | Lightsail instance name                                |
+| `LIGHTSAIL_LOAD_BALANCER_NAME` | Lightsail load balancer name                           |
+| `LIGHTSAIL_STATIC_IP_NAME`     | Lightsail static IP resource name                      |
+| `LIGHTSAIL_KEY_PAIR_NAME`      | Lightsail key pair name                                |
+| `LIGHTSAIL_CERTIFICATE_NAME`   | Lightsail certificate resource name                    |
+| `WP_ALT_NAMES`                 | JSON list of SANs (for example: `["www.example.com"]`) |
 
 **Repository Secrets:**
 
-| Secret Name | Description | How to Get |
-|------------|-------------|------------|
-| `LIGHTSAIL_SSH_PRIVATE_KEY` | SSH key for instance access | Generate with `ssh-keygen -t ed25519` |
-| `ANSIBLE_VAULT_PASSWORD` | Ansible vault password | Generate with `openssl rand -base64 32` |
+| Secret Name                 | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
+| `LIGHTSAIL_SSH_PRIVATE_KEY` | SSH key for instance access                                      |
+| `ANSIBLE_VAULT_PASSWORD`    | Vault password for `ansible/group_vars/wordpress.vault.yml`      |
+| `ALERT_EMAIL`               | Email address for CloudWatch/SNS alerts (optional observability) |
 
-### 3. Configure Your Site
+### 3. Configure Your Platform Variables
+
+Copy and edit these public-safe examples:
+
+- `terraform/terraform.tfvars.example` → `terraform/terraform.tfvars`
+- `ansible/group_vars/wordpress.vault.yml.example` → `ansible/group_vars/wordpress.vault.yml`
+- `.env.example` → `.env` (optional local helper)
+
+Then update your actual values in the copied files.
+
+### 4. Configure Your Site Defaults
 
 Edit `ansible/group_vars/wordpress.yml`:
 
@@ -60,7 +84,7 @@ wp_site_url: https://yourdomain.com
 wp_admin_email: admin@yourdomain.com
 ```
 
-### 4. Deploy!
+### 5. Deploy!
 
 ```bash
 # Via GitHub Actions
@@ -69,7 +93,7 @@ wp_admin_email: admin@yourdomain.com
 
 **Duration:** ~15-20 minutes
 
-Your WordPress site will be live at `https://yourdomain.com` 🎉
+Your fresh WordPress site will be live at `https://yourdomain.com` 🎉
 
 Complete the WordPress installation at `https://yourdomain.com/wp-admin/install.php`
 
@@ -163,17 +187,18 @@ See [docs/OBSERVABILITY_STACKS.md](docs/OBSERVABILITY_STACKS.md) for details.
 
 ### Cost Breakdown
 
-| Component | Monthly Cost |
-|-----------|--------------|
-| Lightsail Nano Instance | $3.50 |
-| Lightsail Load Balancer | $18.00 |
-| Route53 Hosted Zone | $0.50 |
-| CloudWatch Monitoring | $3.00 |
-| CloudWatch Alarms | $1.00 |
-| Synthetic Monitoring | $5-10.00 |
-| **Total** | **~$31-36** |
+| Component               | Monthly Cost |
+| ----------------------- | ------------ |
+| Lightsail Nano Instance | $3.50        |
+| Lightsail Load Balancer | $18.00       |
+| Route53 Hosted Zone     | $0.50        |
+| CloudWatch Monitoring   | $3.00        |
+| CloudWatch Alarms       | $1.00        |
+| Synthetic Monitoring    | $5-10.00     |
+| **Total**               | **~$31-36**  |
 
 Compare to:
+
 - WordPress.com Business: $25-300/month
 - Kinsta: $35+/month
 - WP Engine: $30+/month
@@ -181,21 +206,31 @@ Compare to:
 ## 📖 Documentation
 
 ### Getting Started
+
 - [GitHub Setup Checklist](docs/GITHUB_SETUP_CHECKLIST.md)
+- [Portability Checklist](docs/PORTABILITY_CHECKLIST.md)
 - [Deployment Order](docs/DEPLOYMENT_ORDER.md)
 - [SSH Setup](docs/SSH_SETUP.md)
 
 ### Operations
+
 - [Observability Guide](docs/OBSERVABILITY_STACKS.md)
 - [Backup and Recovery](docs/backup-and-recovery-strategy.md)
 - [Monthly Patching](runbooks/11-monthly-patching-and-backups.md)
 
 ### Advanced
+
 - [WordPress Asset Management](docs/WORDPRESS_ASSET_MANAGEMENT.md)
 - [Platform Architecture](docs/PLATFORM_ARCHITECTURE.md)
 - [Cost Analysis](docs/cost-analysis.md)
 
 ## 🛠️ Development Workflow
+
+### Platform vs App Repo Boundary
+
+- **This repo (platform)**: AWS resources, server bootstrap/config, security, observability, backup patterns.
+- **Your app repo**: themes, plugins, media/content workflows, and WordPress customization code.
+- **Recommended flow**: deploy platform here, then deploy app artifacts from your app repo.
 
 ### Recommended Setup
 
@@ -218,6 +253,7 @@ See [docs/PLATFORM_ARCHITECTURE.md](docs/PLATFORM_ARCHITECTURE.md) for two-repos
 ### Local Development
 
 Use standard WordPress local development tools:
+
 - **Local by Flywheel** (recommended)
 - **MAMP/WAMP**
 - **Docker Compose**
@@ -259,6 +295,7 @@ Restore from snapshot:
 This is a **platform template** meant to be forked and customized for your needs.
 
 Improvements welcome via PRs:
+
 - Bug fixes
 - Documentation improvements
 - New features (Redis cache, CDN, etc.)
@@ -271,6 +308,7 @@ MIT License - See [LICENSE](LICENSE) for details
 ## 🙏 Acknowledgments
 
 Built with:
+
 - [OpenTofu](https://opentofu.org/) - Infrastructure as Code
 - [Ansible](https://www.ansible.com/) - Configuration Management
 - [AWS CDK](https://aws.amazon.com/cdk/) - Monitoring Infrastructure
@@ -286,6 +324,7 @@ Built with:
 ## 🎯 Use Cases
 
 Perfect for:
+
 - ✅ Personal blogs
 - ✅ Portfolio websites
 - ✅ Small business sites
@@ -294,6 +333,7 @@ Perfect for:
 - ✅ Cost-optimized hosting
 
 Not suitable for:
+
 - ❌ High-traffic sites (>100k visitors/month)
 - ❌ E-commerce requiring PCI compliance
 - ❌ Multi-site WordPress networks

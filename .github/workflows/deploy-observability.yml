@@ -1,288 +1,295 @@
 name: Deploy Observability Stacks (CDK)
 
 on:
-    workflow_dispatch:
-        inputs:
-            deploy_monitoring:
-                description: "Deploy Monitoring Stack (Dashboard)"
-                required: false
-                default: true
-                type: boolean
-            deploy_alerts:
-                description: "Deploy Alerts Stack (Alarms + SNS)"
-                required: false
-                default: true
-                type: boolean
-            deploy_synthetic:
-                description: "Deploy Synthetic Monitoring (Canary)"
-                required: false
-                default: true
-                type: boolean
+  workflow_dispatch:
+    inputs:
+      deploy_monitoring:
+        description: "Deploy Monitoring Stack (Dashboard)"
+        required: false
+        default: true
+        type: boolean
+      deploy_alerts:
+        description: "Deploy Alerts Stack (Alarms + SNS)"
+        required: false
+        default: true
+        type: boolean
+      deploy_synthetic:
+        description: "Deploy Synthetic Monitoring (Canary)"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
-    id-token: write
-    contents: read
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  LIGHTSAIL_INSTANCE_NAME: ${{ vars.LIGHTSAIL_INSTANCE_NAME || 'wordpress-dev-1' }}
+  LIGHTSAIL_LOAD_BALANCER_NAME: ${{ vars.LIGHTSAIL_LOAD_BALANCER_NAME || 'wordpress-dev-lb' }}
+  OBSERVABILITY_DASHBOARD_NAME: ${{ vars.OBSERVABILITY_DASHBOARD_NAME || 'wordpress-platform-dashboard' }}
+  DEFAULT_WEBSITE_DOMAIN: ${{ vars.WP_DOMAIN || 'example.com' }}
 
 jobs:
-    deploy_monitoring:
-        name: Deploy Monitoring Stack
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
-        environment: dev
-        if: ${{ inputs.deploy_monitoring }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v7
+  deploy_monitoring:
+    name: Deploy Monitoring Stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    if: ${{ inputs.deploy_monitoring }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-            - name: Configure AWS credentials (OIDC)
-              uses: aws-actions/configure-aws-credentials@v6
-              with:
-                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
-                  aws-region: us-east-1
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set up Node
-              uses: actions/setup-node@v6
-              with:
-                  node-version: "20"
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
 
-            - name: Install CDK dependencies
-              working-directory: cdk
-              run: npm ci
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: npm ci
 
-            - name: Deploy Monitoring Stack
-              working-directory: cdk
-              run: |
-                  npx cdk deploy LightsailMonitoringStack \
-                    --require-approval never \
-                    --parameters InstanceName=blog-dev-1 \
-                    --parameters LoadBalancerName=blog-dev-lb \
-                    --parameters DashboardName=lightsail-blog-platform
+      - name: Deploy Monitoring Stack
+        working-directory: cdk
+        run: |
+          npx cdk deploy LightsailMonitoringStack \
+            --require-approval never \
+            --parameters InstanceName=${{ env.LIGHTSAIL_INSTANCE_NAME }} \
+            --parameters LoadBalancerName=${{ env.LIGHTSAIL_LOAD_BALANCER_NAME }} \
+            --parameters DashboardName=${{ env.OBSERVABILITY_DASHBOARD_NAME }}
 
-            - name: Get Dashboard URL
-              run: |
-                  DASHBOARD_URL=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailMonitoringStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`DashboardURL`].OutputValue' \
-                    --output text)
-                  echo "✅ Monitoring Stack deployed successfully!"
-                  echo "📊 Dashboard URL: $DASHBOARD_URL"
+      - name: Get Dashboard URL
+        run: |
+          DASHBOARD_URL=$(aws cloudformation describe-stacks \
+            --stack-name LightsailMonitoringStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`DashboardURL`].OutputValue' \
+            --output text)
+          echo "✅ Monitoring Stack deployed successfully!"
+          echo "📊 Dashboard URL: $DASHBOARD_URL"
 
-    deploy_alerts:
-        name: Deploy Alerts Stack
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
-        environment: dev
-        if: ${{ inputs.deploy_alerts }}
-        outputs:
-            sns_topic_arn: ${{ steps.get_sns_arn.outputs.topic_arn }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v7
+  deploy_alerts:
+    name: Deploy Alerts Stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    if: ${{ inputs.deploy_alerts }}
+    outputs:
+      sns_topic_arn: ${{ steps.get_sns_arn.outputs.topic_arn }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-            - name: Configure AWS credentials (OIDC)
-              uses: aws-actions/configure-aws-credentials@v6
-              with:
-                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
-                  aws-region: us-east-1
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set up Node
-              uses: actions/setup-node@v6
-              with:
-                  node-version: "20"
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
 
-            - name: Install CDK dependencies
-              working-directory: cdk
-              run: npm ci
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: npm ci
 
-            - name: Deploy Alerts Stack
-              working-directory: cdk
-              run: |
-                  npx cdk deploy LightsailAlertsStack \
-                    --require-approval never \
-                    --parameters InstanceName=blog-dev-1 \
-                    --parameters LoadBalancerName=blog-dev-lb \
-                    --parameters AlertEmail=${{ secrets.ALERT_EMAIL }}
+      - name: Deploy Alerts Stack
+        working-directory: cdk
+        run: |
+          npx cdk deploy LightsailAlertsStack \
+            --require-approval never \
+            --parameters InstanceName=${{ env.LIGHTSAIL_INSTANCE_NAME }} \
+            --parameters LoadBalancerName=${{ env.LIGHTSAIL_LOAD_BALANCER_NAME }} \
+            --parameters AlertEmail=${{ secrets.ALERT_EMAIL }}
 
-            - name: Get SNS Topic ARN
-              id: get_sns_arn
-              run: |
-                  TOPIC_ARN=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailAlertsStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`AlertTopicArn`].OutputValue' \
-                    --output text)
-                  echo "topic_arn=$TOPIC_ARN" >> "$GITHUB_OUTPUT"
-                  echo "✅ Alerts Stack deployed successfully!"
-                  echo "📧 SNS Topic ARN: $TOPIC_ARN"
-                  echo ""
-                  echo "⚠️  IMPORTANT: Check your email (${{ secrets.ALERT_EMAIL }}) and confirm the SNS subscription!"
+      - name: Get SNS Topic ARN
+        id: get_sns_arn
+        run: |
+          TOPIC_ARN=$(aws cloudformation describe-stacks \
+            --stack-name LightsailAlertsStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`AlertTopicArn`].OutputValue' \
+            --output text)
+          echo "topic_arn=$TOPIC_ARN" >> "$GITHUB_OUTPUT"
+          echo "✅ Alerts Stack deployed successfully!"
+          echo "📧 SNS Topic ARN: $TOPIC_ARN"
+          echo ""
+          echo "⚠️  IMPORTANT: Check your email (${{ secrets.ALERT_EMAIL }}) and confirm the SNS subscription!"
 
-    deploy_synthetic:
-        name: Deploy Synthetic Monitoring Stack
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        environment: dev
-        needs: deploy_alerts
-        if: ${{ inputs.deploy_synthetic && inputs.deploy_alerts }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v7
+  deploy_synthetic:
+    name: Deploy Synthetic Monitoring Stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    needs: deploy_alerts
+    if: ${{ inputs.deploy_synthetic && inputs.deploy_alerts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-            - name: Configure AWS credentials (OIDC)
-              uses: aws-actions/configure-aws-credentials@v6
-              with:
-                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
-                  aws-region: us-east-1
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set up Node
-              uses: actions/setup-node@v6
-              with:
-                  node-version: "20"
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
 
-            - name: Install CDK dependencies
-              working-directory: cdk
-              run: npm ci
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: npm ci
 
-            - name: Get Website URL from Terraform
-              id: get_website_url
-              run: |
-                  # Get domain from Terraform state or use default
-                  DOMAIN=$(aws lightsail get-load-balancer-tls-certificates \
-                    --load-balancer-name blog-dev-lb \
-                    --query 'tlsCertificates[0].domainName' \
-                    --output text 2>/dev/null || echo "thebasictek.com")
-                  WEBSITE_URL="https://$DOMAIN"
-                  echo "website_url=$WEBSITE_URL" >> "$GITHUB_OUTPUT"
-                  echo "🌐 Website URL: $WEBSITE_URL"
+      - name: Get Website URL from Terraform
+        id: get_website_url
+        run: |
+          # Get domain from Terraform state or use default
+          DOMAIN=$(aws lightsail get-load-balancer-tls-certificates \
+            --load-balancer-name "$LIGHTSAIL_LOAD_BALANCER_NAME" \
+            --query 'tlsCertificates[0].domainName' \
+            --output text 2>/dev/null || echo "$DEFAULT_WEBSITE_DOMAIN")
+          WEBSITE_URL="https://$DOMAIN"
+          echo "website_url=$WEBSITE_URL" >> "$GITHUB_OUTPUT"
+          echo "🌐 Website URL: $WEBSITE_URL"
 
-            - name: Deploy Synthetic Monitoring Stack
-              working-directory: cdk
-              run: |
-                  npx cdk deploy LightsailSyntheticMonitoringStack \
-                    --require-approval never \
-                    --parameters WebsiteUrl=${{ steps.get_website_url.outputs.website_url }} \
-                    --parameters AlertTopicArn=${{ needs.deploy_alerts.outputs.sns_topic_arn }}
+      - name: Deploy Synthetic Monitoring Stack
+        working-directory: cdk
+        run: |
+          npx cdk deploy LightsailSyntheticMonitoringStack \
+            --require-approval never \
+            --parameters WebsiteUrl=${{ steps.get_website_url.outputs.website_url }} \
+            --parameters AlertTopicArn=${{ needs.deploy_alerts.outputs.sns_topic_arn }}
 
-            - name: Get Canary Details
-              run: |
-                  CANARY_URL=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailSyntheticMonitoringStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`CanaryDashboardURL`].OutputValue' \
-                    --output text)
-                  BUCKET_NAME=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailSyntheticMonitoringStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`ArtifactsBucketName`].OutputValue' \
-                    --output text)
-                  echo "✅ Synthetic Monitoring Stack deployed successfully!"
-                  echo "🔍 Canary Dashboard: $CANARY_URL"
-                  echo "📦 Artifacts Bucket: $BUCKET_NAME"
-                  echo ""
-                  echo "ℹ️  The canary will start running within 5 minutes."
+      - name: Get Canary Details
+        run: |
+          CANARY_URL=$(aws cloudformation describe-stacks \
+            --stack-name LightsailSyntheticMonitoringStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`CanaryDashboardURL`].OutputValue' \
+            --output text)
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name LightsailSyntheticMonitoringStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`ArtifactsBucketName`].OutputValue' \
+            --output text)
+          echo "✅ Synthetic Monitoring Stack deployed successfully!"
+          echo "🔍 Canary Dashboard: $CANARY_URL"
+          echo "📦 Artifacts Bucket: $BUCKET_NAME"
+          echo ""
+          echo "ℹ️  The canary will start running within 5 minutes."
 
-    deploy_synthetic_standalone:
-        name: Deploy Synthetic Monitoring (Standalone)
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        environment: dev
-        # Only runs if synthetic is requested BUT alerts is NOT being deployed
-        if: ${{ inputs.deploy_synthetic && !inputs.deploy_alerts }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v7
+  deploy_synthetic_standalone:
+    name: Deploy Synthetic Monitoring (Standalone)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    # Only runs if synthetic is requested BUT alerts is NOT being deployed
+    if: ${{ inputs.deploy_synthetic && !inputs.deploy_alerts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-            - name: Configure AWS credentials (OIDC)
-              uses: aws-actions/configure-aws-credentials@v6
-              with:
-                  role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
-                  aws-region: us-east-1
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_CDK }}
+          aws-region: ${{ env.AWS_REGION }}
 
-            - name: Set up Node
-              uses: actions/setup-node@v6
-              with:
-                  node-version: "20"
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
 
-            - name: Install CDK dependencies
-              working-directory: cdk
-              run: npm ci
+      - name: Install CDK dependencies
+        working-directory: cdk
+        run: npm ci
 
-            - name: Get SNS Topic ARN from existing stack
-              id: get_existing_sns
-              run: |
-                  TOPIC_ARN=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailAlertsStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`AlertTopicArn`].OutputValue' \
-                    --output text 2>/dev/null)
+      - name: Get SNS Topic ARN from existing stack
+        id: get_existing_sns
+        run: |
+          TOPIC_ARN=$(aws cloudformation describe-stacks \
+            --stack-name LightsailAlertsStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`AlertTopicArn`].OutputValue' \
+            --output text 2>/dev/null)
 
-                  if [ -z "$TOPIC_ARN" ]; then
-                    echo "❌ AlertsStack not found! Deploy AlertsStack first before deploying SyntheticMonitoringStack."
-                    exit 1
-                  fi
+          if [ -z "$TOPIC_ARN" ]; then
+            echo "❌ AlertsStack not found! Deploy AlertsStack first before deploying SyntheticMonitoringStack."
+            exit 1
+          fi
 
-                  echo "topic_arn=$TOPIC_ARN" >> "$GITHUB_OUTPUT"
-                  echo "📧 Using existing SNS Topic: $TOPIC_ARN"
+          echo "topic_arn=$TOPIC_ARN" >> "$GITHUB_OUTPUT"
+          echo "📧 Using existing SNS Topic: $TOPIC_ARN"
 
-            - name: Get Website URL from Terraform
-              id: get_website_url
-              run: |
-                  # Get domain from Lightsail certificate or use default
-                  DOMAIN=$(aws lightsail get-load-balancer-tls-certificates \
-                    --load-balancer-name blog-dev-lb \
-                    --query 'tlsCertificates[0].domainName' \
-                    --output text 2>/dev/null || echo "thebasictek.com")
-                  WEBSITE_URL="https://$DOMAIN"
-                  echo "website_url=$WEBSITE_URL" >> "$GITHUB_OUTPUT"
-                  echo "🌐 Website URL: $WEBSITE_URL"
+      - name: Get Website URL from Terraform
+        id: get_website_url
+        run: |
+          # Get domain from Lightsail certificate or use default
+          DOMAIN=$(aws lightsail get-load-balancer-tls-certificates \
+            --load-balancer-name "$LIGHTSAIL_LOAD_BALANCER_NAME" \
+            --query 'tlsCertificates[0].domainName' \
+            --output text 2>/dev/null || echo "$DEFAULT_WEBSITE_DOMAIN")
+          WEBSITE_URL="https://$DOMAIN"
+          echo "website_url=$WEBSITE_URL" >> "$GITHUB_OUTPUT"
+          echo "🌐 Website URL: $WEBSITE_URL"
 
-            - name: Deploy Synthetic Monitoring Stack
-              working-directory: cdk
-              run: |
-                  npx cdk deploy LightsailSyntheticMonitoringStack \
-                    --require-approval never \
-                    --parameters WebsiteUrl=${{ steps.get_website_url.outputs.website_url }} \
-                    --parameters AlertTopicArn=${{ steps.get_existing_sns.outputs.topic_arn }}
+      - name: Deploy Synthetic Monitoring Stack
+        working-directory: cdk
+        run: |
+          npx cdk deploy LightsailSyntheticMonitoringStack \
+            --require-approval never \
+            --parameters WebsiteUrl=${{ steps.get_website_url.outputs.website_url }} \
+            --parameters AlertTopicArn=${{ steps.get_existing_sns.outputs.topic_arn }}
 
-            - name: Get Canary Details
-              run: |
-                  CANARY_URL=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailSyntheticMonitoringStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`CanaryDashboardURL`].OutputValue' \
-                    --output text)
-                  BUCKET_NAME=$(aws cloudformation describe-stacks \
-                    --stack-name LightsailSyntheticMonitoringStack \
-                    --query 'Stacks[0].Outputs[?OutputKey==`ArtifactsBucketName`].OutputValue' \
-                    --output text)
-                  echo "✅ Synthetic Monitoring Stack deployed successfully!"
-                  echo "🔍 Canary Dashboard: $CANARY_URL"
-                  echo "📦 Artifacts Bucket: $BUCKET_NAME"
-                  echo ""
-                  echo "ℹ️  The canary will start running within 5 minutes."
+      - name: Get Canary Details
+        run: |
+          CANARY_URL=$(aws cloudformation describe-stacks \
+            --stack-name LightsailSyntheticMonitoringStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`CanaryDashboardURL`].OutputValue' \
+            --output text)
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name LightsailSyntheticMonitoringStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`ArtifactsBucketName`].OutputValue' \
+            --output text)
+          echo "✅ Synthetic Monitoring Stack deployed successfully!"
+          echo "🔍 Canary Dashboard: $CANARY_URL"
+          echo "📦 Artifacts Bucket: $BUCKET_NAME"
+          echo ""
+          echo "ℹ️  The canary will start running within 5 minutes."
 
-    summary:
-        name: Deployment Summary
-        runs-on: ubuntu-latest
-        needs:
-            [
-                deploy_monitoring,
-                deploy_alerts,
-                deploy_synthetic,
-                deploy_synthetic_standalone,
-            ]
-        if: always()
-        steps:
-            - name: Summary
-              run: |
-                  echo "## 🎉 Observability Deployment Complete"
-                  echo ""
-                  echo "### Deployed Stacks:"
-                  echo "- Monitoring Stack: ${{ inputs.deploy_monitoring && '✅ Deployed' || '⏭️ Skipped' }}"
-                  echo "- Alerts Stack: ${{ inputs.deploy_alerts && '✅ Deployed' || '⏭️ Skipped' }}"
-                  echo "- Synthetic Monitoring: ${{ inputs.deploy_synthetic && '✅ Deployed' || '⏭️ Skipped' }}"
-                  echo ""
-                  echo "### Next Steps:"
-                  if [ "${{ inputs.deploy_alerts }}" = "true" ]; then
-                    echo "1. ⚠️  Check email and confirm SNS subscription"
-                  fi
-                  echo "2. 📊 View CloudWatch Dashboard"
-                  echo "3. 🔍 Wait 5 minutes for first canary run"
-                  echo "4. ✅ Verify metrics are flowing"
-                  echo ""
-                  echo "See [OBSERVABILITY_STACKS.md](docs/OBSERVABILITY_STACKS.md) for details."
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        deploy_monitoring,
+        deploy_alerts,
+        deploy_synthetic,
+        deploy_synthetic_standalone,
+      ]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🎉 Observability Deployment Complete"
+          echo ""
+          echo "### Deployed Stacks:"
+          echo "- Monitoring Stack: ${{ inputs.deploy_monitoring && '✅ Deployed' || '⏭️ Skipped' }}"
+          echo "- Alerts Stack: ${{ inputs.deploy_alerts && '✅ Deployed' || '⏭️ Skipped' }}"
+          echo "- Synthetic Monitoring: ${{ inputs.deploy_synthetic && '✅ Deployed' || '⏭️ Skipped' }}"
+          echo ""
+          echo "### Next Steps:"
+          if [ "${{ inputs.deploy_alerts }}" = "true" ]; then
+            echo "1. ⚠️  Check email and confirm SNS subscription"
+          fi
+          echo "2. 📊 View CloudWatch Dashboard"
+          echo "3. 🔍 Wait 5 minutes for first canary run"
+          echo "4. ✅ Verify metrics are flowing"
+          echo ""
+          echo "See [OBSERVABILITY_STACKS.md](docs/OBSERVABILITY_STACKS.md) for details."

@@ -2,11 +2,12 @@ import { Tags } from "aws-cdk-lib";
 import { Construct } from "constructs";
 
 export interface SharedTags {
-	[key: string]: string;
+	Project: string;
+	ManagedBy: string;
 }
 
 export const defaultTags: SharedTags = {
-	Project: "lightsail-blog-platform",
+	Project: "wordpress-lightsail-platform",
 	ManagedBy: "cdk",
 };
 

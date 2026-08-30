@@ -43,7 +43,7 @@ In AWS IAM Console → Identity providers → Add provider:
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:Darthstevo/lightsail-blog-platform:*"
+          "token.actions.githubusercontent.com:sub": "repo:your-org/wordpress-lightsail-platform:*"
         }
       }
     }
@@ -77,7 +77,7 @@ Used by: `.github/workflows/provision-and-configure.yml`
 
 ### CDK Role (`AWS_ROLE_ARN_CDK`)
 
-Used by: `.github/workflows/cdk-deploy.yml`, `.github/workflows/cdk-destroy.yml`
+Used by: `.github/workflows/deploy-observability.yml`, `.github/workflows/destroy-observability.yml`
 
 **Permissions**:
 

@@ -8,14 +8,14 @@ This document explains the recommended approach for managing WordPress code, the
 
 ### What Goes Where
 
-| Asset Type | Storage | Why |
-|-----------|---------|-----|
-| **WordPress Core** | Git Repository | Version control, rollback, CI/CD |
-| **Custom Themes** | Git Repository | Track changes, code review, deploy via CI/CD |
-| **Custom Plugins** | Git Repository | Version control, testing, security auditing |
-| **Configuration** | Ansible Variables (encrypted) | Infrastructure as Code, secret management |
-| **Media Uploads** | S3 (via plugin) | Scalability, CDN integration, cost-effective |
-| **Backups** | S3 | Disaster recovery and operational resilience |
+| Asset Type         | Storage                       | Why                                          |
+| ------------------ | ----------------------------- | -------------------------------------------- |
+| **WordPress Core** | Git Repository                | Version control, rollback, CI/CD             |
+| **Custom Themes**  | Git Repository                | Track changes, code review, deploy via CI/CD |
+| **Custom Plugins** | Git Repository                | Version control, testing, security auditing  |
+| **Configuration**  | Ansible Variables (encrypted) | Infrastructure as Code, secret management    |
+| **Media Uploads**  | S3 (via plugin)               | Scalability, CDN integration, cost-effective |
+| **Backups**        | S3                            | Disaster recovery and operational resilience |
 
 ## Deployment Models
 
@@ -24,6 +24,7 @@ This document explains the recommended approach for managing WordPress code, the
 **Use Case:** Starting a new WordPress site from scratch
 
 **Process:**
+
 ```bash
 1. Run the Provision + Configure workflow with default settings
 2. WordPress installs clean
@@ -34,12 +35,14 @@ This document explains the recommended approach for managing WordPress code, the
 ```
 
 **Pros:**
+
 - ✅ Clean slate, no legacy issues
 - ✅ Latest WordPress version
 - ✅ Full control over configuration
 - ✅ No migration complexity
 
 **Cons:**
+
 - ❌ Manual theme/plugin installation
 - ❌ Content must be created from scratch
 
@@ -48,6 +51,7 @@ This document explains the recommended approach for managing WordPress code, the
 **Use Case:** Development workflow with version-controlled themes/plugins
 
 **Setup:**
+
 ```
 my-wordpress-repo/
 ├── .github/workflows/         # CI/CD for theme/plugin deployment
@@ -60,6 +64,7 @@ my-wordpress-repo/
 ```
 
 **WordPress Structure:**
+
 ```
 /var/www/html/
 ├── wp-admin/                  # WordPress core (updated via wp-cli)
@@ -73,6 +78,7 @@ my-wordpress-repo/
 ```
 
 **Deployment Pipeline:**
+
 ```bash
 1. Fresh WordPress install via workflow
 2. Git clone custom themes/plugins to /var/www/html/wp-content/
@@ -83,6 +89,7 @@ my-wordpress-repo/
 ```
 
 **Pros:**
+
 - ✅ Version control for custom code
 - ✅ Automated deployments
 - ✅ Separate staging/production environments
@@ -90,6 +97,7 @@ my-wordpress-repo/
 - ✅ Rollback capability
 
 **Cons:**
+
 - ❌ More complex setup
 - ❌ Requires CI/CD pipeline
 - ❌ Team coordination needed
@@ -101,6 +109,7 @@ my-wordpress-repo/
 **Plugin:** WP Offload Media Lite (free) or Pro (paid)
 
 **Configuration:**
+
 ```php
 // wp-config.php additions
 define('AS3CF_SETTINGS', serialize([
@@ -116,6 +125,7 @@ define('AS3CF_SETTINGS', serialize([
 ```
 
 **Benefits:**
+
 - ✅ Automatic upload to S3
 - ✅ CDN integration (CloudFront)
 - ✅ Reduced disk usage on Lightsail
@@ -123,6 +133,7 @@ define('AS3CF_SETTINGS', serialize([
 - ✅ Easier backups (S3 versioning)
 
 **Cost:**
+
 - S3 storage: ~$0.023/GB/month
 - Data transfer: $0.09/GB (out to internet)
 - CloudFront: $0.085/GB (first 10TB)
@@ -134,11 +145,13 @@ define('AS3CF_SETTINGS', serialize([
 **Use Case:** Small sites (<1GB media), budget-constrained
 
 **Pros:**
+
 - ✅ Simple setup
 - ✅ No additional costs
 - ✅ No plugin dependencies
 
 **Cons:**
+
 - ❌ Limited by Lightsail disk space
 - ❌ No CDN benefits
 - ❌ Harder to backup
@@ -194,14 +207,15 @@ Create scheduled backup playbook:
 ```
 
 **Schedule with GitHub Actions:**
+
 ```yaml
 # .github/workflows/backup-wordpress.yml
 name: WordPress Backup
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM UTC
-  workflow_dispatch:      # Manual trigger
+    - cron: "0 2 * * *" # Daily at 2 AM UTC
+  workflow_dispatch: # Manual trigger
 
 jobs:
   backup:
@@ -214,6 +228,7 @@ jobs:
 ### Backup Retention Policy
 
 **Recommended S3 lifecycle rules:**
+
 ```json
 {
   "Rules": [
@@ -240,6 +255,7 @@ jobs:
 ```
 
 **Cost example:**
+
 - Daily backups: 1GB each
 - 30 days Standard: 30GB × $0.023 = $0.69/month
 - 60 days IA: 60GB × $0.0125 = $0.75/month
@@ -251,8 +267,9 @@ jobs:
 ### Recommended Git Workflow
 
 **Repository Structure:**
+
 ```
-lightsail-blog-platform/
+wordpress-lightsail-platform/
 ├── .github/workflows/         # Infrastructure + deployment CI/CD
 ├── ansible/                   # Configuration management
 ├── terraform/                 # Infrastructure as Code
@@ -267,6 +284,7 @@ lightsail-blog-platform/
 ```
 
 **What to Commit:**
+
 - ✅ Custom themes (if not using commercial theme)
 - ✅ Custom plugins
 - ✅ Must-use plugins
@@ -274,6 +292,7 @@ lightsail-blog-platform/
 - ✅ Deployment scripts
 
 **What NOT to Commit:**
+
 - ❌ WordPress core files
 - ❌ Third-party themes/plugins (use composer instead)
 - ❌ Uploads/media
@@ -284,6 +303,7 @@ lightsail-blog-platform/
 ### Using Composer for WordPress
 
 **composer.json example:**
+
 ```json
 {
   "name": "my-org/wordpress-site",
@@ -311,6 +331,7 @@ lightsail-blog-platform/
 ```
 
 **Benefits:**
+
 - ✅ Version-locked dependencies
 - ✅ Reproducible deployments
 - ✅ Easy updates (`composer update`)
@@ -336,6 +357,7 @@ sudo chmod 755 /var/www/html/wp-content/uploads
 ### S3 Bucket Security
 
 **Bucket policy for media offload:**
+
 ```json
 {
   "Version": "2012-10-17",
@@ -353,10 +375,7 @@ sudo chmod 755 /var/www/html/wp-content/uploads
       "Principal": {
         "AWS": "arn:aws:iam::ACCOUNT:user/wordpress-uploader"
       },
-      "Action": [
-        "s3:PutObject",
-        "s3:DeleteObject"
-      ],
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
       "Resource": "arn:aws:s3:::my-wordpress-media/*"
     }
   ]
@@ -364,24 +383,19 @@ sudo chmod 755 /var/www/html/wp-content/uploads
 ```
 
 **IAM policy for WordPress:**
+
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:ListBucket"
-      ],
+      "Action": ["s3:ListBucket"],
       "Resource": "arn:aws:s3:::my-wordpress-media"
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject"
-      ],
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
       "Resource": "arn:aws:s3:::my-wordpress-media/*"
     }
   ]
@@ -439,6 +453,7 @@ sudo chmod 755 /var/www/html/wp-content/uploads
 ### Common Issues
 
 **Issue: Upload size limit too small**
+
 ```php
 // wp-config.php
 @ini_set('upload_max_filesize', '64M');
@@ -447,12 +462,14 @@ sudo chmod 755 /var/www/html/wp-content/uploads
 ```
 
 **Issue: Memory limit exhausted**
+
 ```php
 // wp-config.php
 define('WP_MEMORY_LIMIT', '256M');
 ```
 
 **Issue: S3 uploads failing**
+
 ```bash
 # Check IAM permissions
 # Verify S3 bucket policy
@@ -461,6 +478,7 @@ define('WP_MEMORY_LIMIT', '256M');
 ```
 
 **Issue: Database connection errors**
+
 ```bash
 # Verify wp-config.php database credentials
 # Check MySQL is running: systemctl status mysql
@@ -471,12 +489,14 @@ define('WP_MEMORY_LIMIT', '256M');
 ## Summary
 
 **For Fresh Sites:**
+
 - Deploy using the default platform workflow
 - Use S3 offload plugin for media
 - Version control custom themes/plugins
 - Automate backups to S3
 
 **For Production:**
+
 - Daily automated backups to S3
 - S3 lifecycle policies for cost optimization
 - Monitoring and alerting (already configured)

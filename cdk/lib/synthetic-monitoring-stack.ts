@@ -27,8 +27,8 @@ export class SyntheticMonitoringStack extends Stack {
 		// Parameters
 		const websiteUrl = new CfnParameter(this, "WebsiteUrl", {
 			type: "String",
-			description: "Website URL to monitor (e.g., https://thebasictek.com)",
-			default: "https://thebasictek.com",
+			description: "Website URL to monitor (e.g., https://example.com)",
+			default: "https://example.com",
 		});
 
 		const alertTopicArn = new CfnParameter(this, "AlertTopicArn", {

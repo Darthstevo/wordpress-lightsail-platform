@@ -19,7 +19,7 @@ This guide will help you set up branch protection rules to enforce quality gates
 
 **GitHub Web Interface:**
 
-1. Go to your repository: https://github.com/Darthstevo/lightsail-blog-platform
+1. Go to your repository: `https://github.com/your-org/wordpress-lightsail-platform`
 2. Click **Settings** (top menu)
 3. Click **Branches** (left sidebar, under "Code and automation")
 4. Click **Add branch protection rule**
@@ -131,7 +131,7 @@ git push origin feat/add-mysql-role
 # Click it or use GitHub CLI:
 gh pr create --title "Add MySQL role" --body "Implements database setup for WordPress"
 
-# Or create via web: https://github.com/Darthstevo/lightsail-blog-platform/compare
+# Or create via web: https://github.com/your-org/wordpress-lightsail-platform/compare
 ```
 
 ### PR Review Process

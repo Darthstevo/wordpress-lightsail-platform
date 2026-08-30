@@ -69,7 +69,7 @@ These stacks provide production-grade observability, demonstrating best practice
 
 - `InstanceName` - Lightsail instance name (default: `blog-dev-1`)
 - `LoadBalancerName` - Load balancer name (default: `blog-dev-lb`)
-- `DashboardName` - Dashboard name (default: `lightsail-blog-platform`)
+- `DashboardName` - Dashboard name (default: `wordpress-platform-dashboard`)
 
 **Outputs**:
 
@@ -135,7 +135,7 @@ These stacks provide production-grade observability, demonstrating best practice
 
 **Parameters**:
 
-- `WebsiteUrl` - URL to monitor (default: `https://thebasictek.com`)
+- `WebsiteUrl` - URL to monitor (default: `https://example.com`)
 - `AlertTopicArn` - SNS Topic ARN from AlertsStack (required)
 
 **Outputs**:
@@ -174,7 +174,7 @@ npx cdk deploy --all \
   --parameters LightsailAlertsStack:InstanceName=blog-dev-1 \
   --parameters LightsailAlertsStack:LoadBalancerName=blog-dev-lb \
   --parameters LightsailAlertsStack:AlertEmail=your-email@example.com \
-  --parameters LightsailSyntheticMonitoringStack:WebsiteUrl=https://thebasictek.com \
+  --parameters LightsailSyntheticMonitoringStack:WebsiteUrl=https://example.com \
   --parameters LightsailSyntheticMonitoringStack:AlertTopicArn=<arn-from-alerts-output>
 ```
 
@@ -198,7 +198,7 @@ npx cdk deploy LightsailAlertsStack \
 
 # 3. Synthetic Monitoring (Canary)
 npx cdk deploy LightsailSyntheticMonitoringStack \
-  --parameters WebsiteUrl=https://thebasictek.com \
+  --parameters WebsiteUrl=https://example.com \
   --parameters AlertTopicArn=arn:aws:sns:us-east-1:123456789012:lightsail-blog-alerts
 ```
 
@@ -296,7 +296,7 @@ on:
       website_url:
         description: "Website URL to monitor"
         required: true
-        default: "https://thebasictek.com"
+        default: "https://example.com"
       alert_email:
         description: "Email for alert notifications"
         required: true

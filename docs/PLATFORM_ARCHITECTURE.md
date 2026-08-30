@@ -203,7 +203,7 @@ jobs:
       - name: Checkout platform repository
         uses: actions/checkout@v4
         with:
-          repository: Darthstevo/lightsail-wordpress-platform
+          repository: your-org/wordpress-lightsail-platform
           ref: v1.0.0
           path: platform
       
@@ -243,7 +243,7 @@ jobs:
   uses: peter-evans/repository-dispatch@v2
   with:
     token: ${{ secrets.PLATFORM_REPO_PAT }}
-    repository: Darthstevo/lightsail-wordpress-platform
+  repository: your-org/wordpress-lightsail-platform
     event-type: deploy-application
     client-payload: |
       {
@@ -323,7 +323,7 @@ jobs:
 # app/.github/workflows/deploy.yml
 jobs:
   deploy-site:
-    uses: Darthstevo/lightsail-wordpress-platform/.github/workflows/reusable-deploy.yml@v1.0.0
+  uses: your-org/wordpress-lightsail-platform/.github/workflows/reusable-deploy.yml@v1.0.0
     with:
       app_repo: ${{ github.repository }}
       config_path: config/platform-config.yml
@@ -466,7 +466,7 @@ git tag v2.0.0  # Breaking changes
 Users pin to specific versions:
 ```yaml
 # app's deploy.yml
-uses: Darthstevo/lightsail-wordpress-platform@v1.0.0
+uses: your-org/wordpress-lightsail-platform@v1.0.0
 ```
 
 ### For End Users (WordPress Developers)
@@ -474,7 +474,7 @@ uses: Darthstevo/lightsail-wordpress-platform@v1.0.0
 **Experience:**
 1. **Start from template**
    ```bash
-   gh repo create my-wordpress-site --template Darthstevo/wordpress-app-template
+  gh repo create my-wordpress-site --template your-org/wordpress-app-template
    ```
 
 2. **Configure platform**

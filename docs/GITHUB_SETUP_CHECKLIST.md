@@ -6,14 +6,14 @@ Track your progress setting up GitHub Secrets and Variables for CI/CD workflows.
 
 ### ✅ Prerequisites (Already Complete)
 
-- [x] Repository created: `Darthstevo/lightsail-blog-platform`
-- [x] Repository is private
+- [x] Repository created: `your-org/wordpress-lightsail-platform`
+- [x] Repository visibility reviewed (public template or private fork)
 - [x] Ansible vault file encrypted
 - [x] SSH key pair generated (`~/.ssh/lightsail_blog_key`)
 
 ### 🔐 GitHub Secrets (Required)
 
-Go to: https://github.com/Darthstevo/lightsail-blog-platform/settings/secrets/actions
+Go to: `https://github.com/your-org/wordpress-lightsail-platform/settings/secrets/actions`
 
 - [ ] **ANSIBLE_VAULT_PASSWORD**
   - Value: The password you used to encrypt `ansible/group_vars/wordpress.vault.yml`
@@ -27,7 +27,7 @@ Go to: https://github.com/Darthstevo/lightsail-blog-platform/settings/secrets/ac
 
 ### 📊 GitHub Variables (Required)
 
-Go to: https://github.com/Darthstevo/lightsail-blog-platform/settings/secrets/actions (Variables tab)
+Go to: `https://github.com/your-org/wordpress-lightsail-platform/settings/secrets/actions` (Variables tab)
 
 - [ ] **AWS_ROLE_ARN_TERRAFORM**
   - Value: ARN of your IAM role for Terraform/OpenTofu
@@ -55,13 +55,13 @@ Go to: https://github.com/Darthstevo/lightsail-blog-platform/settings/secrets/ac
 - [ ] **Create IAM Role for Terraform/OpenTofu**
   - Role name: `GitHubActions-Terraform-Role`
   - Policy: Use `docs/iam/terraform-role-policy.json`
-  - Trust relationship: Limit to `Darthstevo/lightsail-blog-platform`
+  - Trust relationship: Limit to `your-org/wordpress-lightsail-platform`
   - Copy ARN → Add to GitHub Variables
 
 - [ ] **Create IAM Role for CDK**
   - Role name: `GitHubActions-CDK-Role`
   - Policy: Use `docs/iam/cdk-role-policy.json`
-  - Trust relationship: Limit to `Darthstevo/lightsail-blog-platform`
+  - Trust relationship: Limit to `your-org/wordpress-lightsail-platform`
   - Copy ARN → Add to GitHub Variables
 
 ### 🔧 Configuration (Before Running Workflows)
@@ -70,8 +70,8 @@ Go to: https://github.com/Darthstevo/lightsail-blog-platform/settings/secrets/ac
 
   ```hcl
   # Only override if different from defaults
-  public_key_path = "~/.ssh/lightsail_blog_key.pub"  # default
-  key_pair_name = "blog-wordpress-key"                 # default
+  public_key_path = "~/.ssh/wordpress_platform_key.pub"  # default
+  key_pair_name = "wordpress-platform-key"                # default
   route53_zone_id = "Z0123456789ABCDEFGHIJ"           # REQUIRED - your hosted zone ID
   certificate_domain_name = "blog.yourdomain.com"      # REQUIRED - your domain
   certificate_alternative_names = []                   # optional SANs
@@ -171,7 +171,7 @@ git push
 - **Don't enable workflows until all secrets/variables are set** - they will fail
 - **Test locally first** - easier to debug than in CI/CD
 - **Keep vault password safe** - store in password manager (Bitwarden recommended)
-- **Private repo required** - vault file is encrypted but still sensitive
+- **Never commit real secrets** - keep vault password and private key in secure secret stores
 - **Review IAM trust relationships** - ensure limited to your repo only
 
 ## 🆘 Need Help?

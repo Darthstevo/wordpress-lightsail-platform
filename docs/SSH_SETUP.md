@@ -4,8 +4,8 @@
 
 Located at:
 
-- **Private key**: `~/.ssh/lightsail_blog_key` (keep secret!)
-- **Public key**: `~/.ssh/lightsail_blog_key.pub` (upload to AWS)
+- **Private key**: `~/.ssh/wordpress_platform_key` (keep secret!)
+- **Public key**: `~/.ssh/wordpress_platform_key.pub` (upload to AWS)
 
 ## What Uses the SSH Key?
 
@@ -33,14 +33,14 @@ Lightsail is different from EC2 - you **cannot** pre-upload keys. The key pair m
 Make sure your public key exists:
 
 ```bash
-cat ~/.ssh/lightsail_blog_key.pub
+cat ~/.ssh/wordpress_platform_key.pub
 ```
 
 The default path is already configured in `terraform/variables.tf`:
 
 ```hcl
 variable "public_key_path" {
-  default = "~/.ssh/lightsail_blog_key.pub"
+  default = "~/.ssh/wordpress_platform_key.pub"
 }
 ```
 
@@ -59,10 +59,10 @@ tofu apply -var="public_key_path=/path/to/your/key.pub"
 1. Copy the **entire** private key including headers:
 
    ```bash
-   cat ~/.ssh/lightsail_blog_key
+  cat ~/.ssh/wordpress_platform_key
    ```
 
-2. Go to: https://github.com/Darthstevo/lightsail-blog-platform/settings/secrets/actions
+2. Go to: `https://github.com/your-org/wordpress-lightsail-platform/settings/secrets/actions`
 
 3. Click "New repository secret"
 
@@ -125,14 +125,14 @@ cd terraform
 STATIC_IP=$(tofu output -raw static_ip)
 
 # Test SSH connection
-ssh -i ~/.ssh/lightsail_blog_key ubuntu@$STATIC_IP
+ssh -i ~/.ssh/wordpress_platform_key ubuntu@$STATIC_IP
 
 # Test Ansible connection
 cd ../ansible
 ansible lightsail \
   -i inventory/dev.ini \
   -m ping \
-  --private-key ~/.ssh/lightsail_blog_key
+  --private-key ~/.ssh/wordpress_platform_key
 ```
 
 ## Troubleshooting
@@ -141,7 +141,7 @@ ansible lightsail \
 
 - Make sure public key is uploaded to Lightsail with correct name
 - Verify `key_pair_name` variable matches the name in Lightsail
-- Check private key permissions: `chmod 600 ~/.ssh/lightsail_blog_key`
+- Check private key permissions: `chmod 600 ~/.ssh/wordpress_platform_key`
 
 **"Host key verification failed"**
 

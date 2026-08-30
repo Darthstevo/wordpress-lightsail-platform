@@ -8,6 +8,21 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+  TF_VAR_availability_zone: ${{ vars.AWS_AVAILABILITY_ZONE || 'us-east-1a' }}
+  TF_VAR_instance_name: ${{ vars.LIGHTSAIL_INSTANCE_NAME || 'wordpress-dev-1' }}
+  TF_VAR_static_ip_name: ${{ vars.LIGHTSAIL_STATIC_IP_NAME || 'wordpress-dev-ip' }}
+  TF_VAR_load_balancer_name: ${{ vars.LIGHTSAIL_LOAD_BALANCER_NAME || 'wordpress-dev-lb' }}
+  TF_VAR_key_pair_name: ${{ vars.LIGHTSAIL_KEY_PAIR_NAME || 'wordpress-platform-key' }}
+  TF_VAR_load_balancer_certificate_name: ${{ vars.LIGHTSAIL_CERTIFICATE_NAME || 'wordpress-dev-cert' }}
+  TF_VAR_load_balancer_certificate_domain: ${{ vars.WP_DOMAIN || 'example.com' }}
+  TF_VAR_load_balancer_certificate_alternative_names: ${{ vars.WP_ALT_NAMES || '["www.example.com"]' }}
+  TF_VAR_route53_zone_id: ${{ vars.ROUTE53_ZONE_ID || 'Z123EXAMPLE' }}
+  TF_VAR_route53_a_record_names: ${{ vars.ROUTE53_A_RECORD_NAMES || '["example.com"]' }}
+  DEFAULT_WEBSITE_DOMAIN: ${{ vars.WP_DOMAIN || 'example.com' }}
+
 jobs:
   preflight:
     name: Detect Existing Resources
@@ -25,7 +40,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v2
@@ -99,29 +114,29 @@ jobs:
           # It will be managed with lifecycle ignore_changes instead
 
           check_resource "aws_lightsail_instance" "blog" \
-            "aws lightsail get-instance --instance-name blog-dev-1" \
-            "blog-dev-1"
+            "aws lightsail get-instance --instance-name $TF_VAR_instance_name" \
+            "$TF_VAR_instance_name"
 
           check_resource "aws_lightsail_static_ip" "blog_ip" \
-            "aws lightsail get-static-ip --static-ip-name blog-dev-ip" \
-            "blog-dev-ip"
+            "aws lightsail get-static-ip --static-ip-name $TF_VAR_static_ip_name" \
+            "$TF_VAR_static_ip_name"
 
           check_resource "aws_lightsail_lb" "blog_lb" \
-            "aws lightsail get-load-balancer --load-balancer-name blog-dev-lb" \
-            "blog-dev-lb"
+            "aws lightsail get-load-balancer --load-balancer-name $TF_VAR_load_balancer_name" \
+            "$TF_VAR_load_balancer_name"
 
           # Check attachment resources (these link resources together)
           check_resource "aws_lightsail_static_ip_attachment" "blog_ip_attach" \
-            "aws lightsail get-static-ip --static-ip-name blog-dev-ip | grep attachedTo" \
-            "blog-dev-ip"
+            "aws lightsail get-static-ip --static-ip-name $TF_VAR_static_ip_name | grep attachedTo" \
+            "$TF_VAR_static_ip_name"
 
           check_resource "aws_lightsail_lb_attachment" "blog_lb_attach" \
-            "aws lightsail get-load-balancer --load-balancer-name blog-dev-lb | grep instanceName" \
-            "blog-dev-lb,blog-dev-1"
+            "aws lightsail get-load-balancer --load-balancer-name $TF_VAR_load_balancer_name | grep instanceName" \
+            "$TF_VAR_load_balancer_name,$TF_VAR_instance_name"
 
           check_resource "aws_lightsail_lb_certificate" "blog_cert" \
-            "aws lightsail get-load-balancer-tls-certificates --load-balancer-name blog-dev-lb | grep blog-dev-cert" \
-            "blog-dev-lb,blog-dev-cert"
+            "aws lightsail get-load-balancer-tls-certificates --load-balancer-name $TF_VAR_load_balancer_name | grep $TF_VAR_load_balancer_certificate_name" \
+            "$TF_VAR_load_balancer_name,$TF_VAR_load_balancer_certificate_name"
 
           echo "needs_import=$NEEDS_IMPORT" >> "$GITHUB_OUTPUT"
           echo "import_commands=$IMPORT_CMDS" >> "$GITHUB_OUTPUT"
@@ -149,7 +164,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v2
@@ -227,7 +242,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v2
@@ -287,10 +302,10 @@ jobs:
           # Check if key pair is in Terraform state
           if ! tofu state show aws_lightsail_key_pair.blog_key >/dev/null 2>&1; then
             # Not in state - check if it exists in AWS
-            if aws lightsail get-key-pair --key-pair-name blog-wordpress-key 2>&1 | grep -q '"keyPair"'; then
+            if aws lightsail get-key-pair --key-pair-name "$TF_VAR_key_pair_name" 2>&1 | grep -q '"keyPair"'; then
               echo "⚠️  Key pair exists in AWS but not in state (cannot import due to AWS limitation)"
               echo "   Deleting existing key pair so Terraform can recreate it..."
-              aws lightsail delete-key-pair --key-pair-name blog-wordpress-key
+              aws lightsail delete-key-pair --key-pair-name "$TF_VAR_key_pair_name"
               echo "✅ Deleted - Terraform will recreate with same name"
             else
               echo "○ Key pair doesn't exist - Terraform will create it"
@@ -334,7 +349,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN_TERRAFORM }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up Python
         uses: actions/setup-python@v6

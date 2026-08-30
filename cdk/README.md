@@ -40,7 +40,7 @@ TOPIC_ARN=$(aws cloudformation describe-stacks \
 
 # Deploy synthetic monitoring with Topic ARN
 npx cdk deploy LightsailSyntheticMonitoringStack \
-  --parameters WebsiteUrl=https://thebasictek.com \
+  --parameters WebsiteUrl=https://example.com \
   --parameters AlertTopicArn=$TOPIC_ARN
 ```
 

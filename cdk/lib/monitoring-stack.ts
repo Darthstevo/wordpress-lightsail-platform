@@ -42,7 +42,7 @@ export class MonitoringStack extends Stack {
 		const dashboardName = new CfnParameter(this, "DashboardName", {
 			type: "String",
 			description: "CloudWatch dashboard name",
-			default: "lightsail-blog-platform",
+			default: "wordpress-platform-dashboard",
 		});
 
 		// Create dashboard

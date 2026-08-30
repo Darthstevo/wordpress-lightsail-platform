@@ -21,7 +21,7 @@ import { SyntheticMonitoringStack } from "../lib/synthetic-monitoring-stack";
  *     --parameters AlertsStack:InstanceName=blog-dev-1 \
  *     --parameters AlertsStack:LoadBalancerName=blog-dev-lb \
  *     --parameters AlertsStack:AlertEmail=your-email@example.com \
- *     --parameters SyntheticMonitoringStack:WebsiteUrl=https://thebasictek.com \
+ *     --parameters SyntheticMonitoringStack:WebsiteUrl=https://example.com \
  *     --parameters SyntheticMonitoringStack:AlertTopicArn=<arn-from-alerts-stack>
  */
 const app = new App();

@@ -1,5 +1,5 @@
 {
-  "name": "lightsail-blog-platform-cdk",
+  "name": "wordpress-lightsail-platform-cdk",
   "private": true,
   "version": "0.1.0",
   "description": "CDK stacks for Route 53 and monitoring.",

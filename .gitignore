@@ -46,3 +46,7 @@ terraform.rc
 # CDK build artifacts
 cdk/cdk.out/
 cdk/dist/
+cdk/node_modules/
+
+# Local environment file
+.env

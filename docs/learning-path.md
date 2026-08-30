@@ -56,7 +56,7 @@ This guide is meant to help you learn while building the Lightsail blog platform
 
 **Goal:** understand CDK app structure.
 
-- `cdk/bin/lightsail-blog-platform.ts`
+- `cdk/bin/lightsail-blog-platform.ts` (entrypoint filename; logical stack names are template-safe)
 - `cdk/lib/route53-stack.ts`
 
 **Concepts:** app, stack, constructs

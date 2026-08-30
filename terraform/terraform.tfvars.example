@@ -1,0 +1,19 @@
+## Public-safe example overrides for this platform template.
+## Copy to terraform.tfvars and update for your AWS account/environment.
+
+aws_region         = "us-east-1"
+availability_zone  = "us-east-1a"
+instance_name      = "wordpress-dev-1"
+static_ip_name     = "wordpress-dev-ip"
+load_balancer_name = "wordpress-dev-lb"
+key_pair_name      = "wordpress-platform-key"
+
+load_balancer_certificate_name              = "wordpress-dev-cert"
+load_balancer_certificate_domain            = "example.com"
+load_balancer_certificate_alternative_names = ["www.example.com"]
+
+route53_zone_id         = "Z123EXAMPLE"
+route53_a_record_names  = ["example.com"]
+enable_route53_a_records = true
+
+enable_cert_validation_records = false
