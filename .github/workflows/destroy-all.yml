@@ -27,7 +27,7 @@ jobs:
         uses: opentofu/setup-opentofu@v2
 
       - name: Cache OpenTofu plugins
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.terraform.d/plugin-cache
